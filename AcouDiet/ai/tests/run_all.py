@@ -246,6 +246,39 @@ def main() -> int:
             except OSError:
                 pass
 
+    # --- FF-20b threshold calibration (T-05b) ----------------------------------------------
+    #
+    # `SPEC-00` section 3.4 FF-20b has always required the three confidence thresholds to be
+    # CALIBRATED, with the process written into a test report. Measured 2026-09-15: no such
+    # report existed anywhere in the repository, and no calibration code existed at all -- so
+    # FF-20b was a frozen requirement with nothing behind it.
+    #
+    # `ai/scripts/calibrate_thresholds.py` implements it. Its own self-test needs no data, which
+    # is the point: it can run in a gate.
+    #
+    # ⚠️ Exit code alone is not enough here. The self-test's value is its NEGATIVE CONTROLS --
+    # a deliberately over-confident model that must be corrected, an already-calibrated model
+    # that must NOT be corrected, and a deliberately-wrong conformal quantile that must miss the
+    # coverage target. Deleting a control would leave exit code 0 and the gate would go quiet,
+    # so the presence of each control is asserted from the output as well.
+    proc3 = subprocess.run(
+        [sys.executable, str(AI / "scripts" / "calibrate_thresholds.py"), "--selftest"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    out3 = (proc3.stdout or "") + (proc3.stderr or "")
+    r.check("calibrate_thresholds --selftest exits 0", proc3.returncode == 0,
+            f"exit={proc3.returncode} {out3.strip()[-120:]}")
+    r.check("temperature scaling corrects an over-confident model",
+            "[positive control]" in out3 and "ECE on holdout" in out3,
+            "positive control (over-confident -> calibrated) present")
+    r.check("temperature scaling does NOT 'correct' an already-calibrated model",
+            "[negative control] fitted T" in out3,
+            "the fitter is shown not to chase noise")
+    r.check("conformal coverage is verified against a wrong quantile",
+            "wrong quantile" in out3 and "correct k ->" in out3,
+            "the control that can actually fail is present, not deleted")
+    r.check("an unsupportable coverage claim is refused",
+            "unsupportable coverage claim was refused" in out3)
+
     # ---- summary ------------------------------------------------------------------------
     print()
     print("=" * 78)

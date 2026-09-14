@@ -102,6 +102,11 @@ def main(argv: list[str]) -> int:
                     help=f"split to measure (repeatable); default: test_public + {PRIMARY}")
     ap.add_argument("--limit", type=int, default=0, help="cap clips per split (reported as such)")
     ap.add_argument("--out", default=str(OUT))
+    ap.add_argument("--predictions", default=None,
+                    help="also dump one JSON object per clip (split/path/trueId/predId/probs) "
+                         "to this path, for ai/scripts/calibrate_thresholds.py. Without it this "
+                         "script cannot feed the FF-20b calibration -- the aggregate metrics in "
+                         "the report do not carry the per-sample confidences it needs.")
     args = ap.parse_args(argv[1:])
 
     if not MODEL_CARD.exists():
@@ -171,6 +176,11 @@ def main(argv: list[str]) -> int:
     all_true: list[int] = []
     all_pred: list[int] = []
 
+    # ADR-40 / FF-20b: the per-sample record. The aggregate table in `report` cannot be
+    # calibrated -- temperature scaling and conformal prediction both need every row's full
+    # probability vector, not a confusion matrix.
+    pred_rows: list[dict] = []
+
     for split in splits:
         rows = read_split(split)
         truncated = bool(args.limit and args.limit < len(rows))
@@ -206,6 +216,15 @@ def main(argv: list[str]) -> int:
             y_true.append(label_id[label])
             y_pred.append(int(np.argmax(probs)))
             conf.append(float(np.max(probs)))
+            if args.predictions:
+                pred_rows.append({
+                    "split": split,
+                    "path": row["path"],
+                    "trueId": int(label_id[label]),
+                    "trueLabel": label,
+                    "predId": int(np.argmax(probs)),
+                    "probs": [float(v) for v in probs],
+                })
 
         n = len(y_true)
         if n == 0:
@@ -267,6 +286,19 @@ def main(argv: list[str]) -> int:
     out_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print()
     print(f"wrote {out_path}")
+
+    if args.predictions:
+        pred_path = Path(args.predictions)
+        pred_path.parent.mkdir(parents=True, exist_ok=True)
+        with pred_path.open("w", encoding="utf-8") as fh:
+            for row in pred_rows:
+                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        print(f"wrote {pred_path} ({len(pred_rows)} clips)")
+        if not pred_rows:
+            # Do not let an empty dump look like a successful one: the calibrator would then fail
+            # with a confusing "split not found" instead of "the evaluator produced nothing".
+            print("ACD-ART-001: --predictions produced zero rows", file=sys.stderr)
+            return 1
     return 0
 
 

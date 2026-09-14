@@ -94,12 +94,18 @@ def nll(probs: np.ndarray, y: np.ndarray) -> float:
 
 
 def fit_temperature(logits: np.ndarray, y: np.ndarray,
-                    lo: float = 0.05, hi: float = 20.0, iters: int = 60) -> float:
+                    lo: float = 0.05, hi: float = 1e4, iters: int = 120) -> float:
     """Golden-section search for the NLL-minimising temperature.
 
     A scalar has one basin, so a derivative-free search is both sufficient and impossible to get
     wrong by a bad gradient step. The search interval is asserted to bracket the optimum: if the
     minimum sits on an endpoint the function raises rather than silently returning a boundary.
+
+    The upper bound is deliberately enormous. On the **shipped** model the optimum ran past 20 and
+    the assertion fired -- which is not a defect in the search, it is the measurement: a model
+    whose output barely depends on its input can only be calibrated by flattening towards the
+    uniform distribution, so `T -> inf`. Truncating the search would have hidden that behind a
+    "best fit" number; `--boundary` in the report is what names it instead.
     """
     def f(t: float) -> float:
         return nll(probabilities(logits, t), y)
@@ -173,11 +179,17 @@ def coverage(sets: np.ndarray, y: np.ndarray) -> float:
 
 # --------------------------------------------------------------------------- io
 
-def read_predictions(path: Path) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-    """JSONL written by `tool/evaluate_shipped_model.py --predictions`, grouped by split."""
+def read_predictions(path: Path) -> tuple[dict[str, tuple[np.ndarray, np.ndarray]], list[str]]:
+    """JSONL written by `tool/evaluate_shipped_model.py --predictions`, grouped by split.
+
+    Returns the per-split (probabilities, true ids) and the class-name table, which is taken from
+    the file itself rather than assumed -- so the report cannot name the classes differently from
+    the model card the evaluator read.
+    """
     if not path.exists():
         raise FileNotFoundError(path)
     by_split: dict[str, list[tuple[list[float], int]]] = {}
+    label_of: dict[int, str] = {}
     for lineno, line in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), start=1):
         line = line.strip()
         if not line:
@@ -187,6 +199,7 @@ def read_predictions(path: Path) -> dict[str, tuple[np.ndarray, np.ndarray]]:
         except json.JSONDecodeError as e:
             raise ValueError(f"ACD-ART-001: line {lineno} is not valid JSON: {e}") from e
         by_split.setdefault(row["split"], []).append((row["probs"], int(row["trueId"])))
+        label_of[int(row["trueId"])] = str(row["trueLabel"])
 
     out: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     for split, rows in by_split.items():
@@ -195,7 +208,9 @@ def read_predictions(path: Path) -> dict[str, tuple[np.ndarray, np.ndarray]]:
         if probs.ndim != 2:
             raise ValueError(f"ACD-ART-001: {split}: expected a probability vector per row")
         out[split] = (probs, y)
-    return out
+    n_classes = int(max(len(p) for p, _ in out.values()))
+    labels = [label_of.get(i, f"class{i}") for i in range(n_classes)]
+    return out, labels
 
 
 def logits_of(probs: np.ndarray) -> np.ndarray:
@@ -333,7 +348,7 @@ def main(argv: list[str] | None = None) -> int:
         print("ACD-ART-001: --predictions is required (or use --selftest)", file=sys.stderr)
         return 2
 
-    splits = read_predictions(Path(args.predictions))
+    splits, labels = read_predictions(Path(args.predictions))
     if args.fit not in splits or args.eval not in splits:
         print(f"ACD-ART-001: need both splits in the file; have {sorted(splits)}", file=sys.stderr)
         return 2
@@ -342,7 +357,33 @@ def main(argv: list[str] | None = None) -> int:
     ev_p, ev_y = splits[args.eval]
     fit_logits, ev_logits = logits_of(fit_p), logits_of(ev_p)
 
-    t_hat = fit_temperature(fit_logits, fit_y)
+    # --- degeneracy diagnostics (BEFORE fitting, because they decide what fitting means) -----
+    #
+    # A calibration number on its own is not interpretable. If the model emits nearly the same
+    # distribution for every clip, then `T -> inf` is the only fit available (the uniform
+    # distribution is the NLL minimiser), the conformal set has to grow towards all six classes
+    # to buy any coverage, and both facts mean the same thing: the outputs carry no per-input
+    # information. These numbers name that state instead of leaving the reader to infer it.
+    #
+    # ⚠️ On the shipped model the fit ran to the search bound at BOTH 20 and 1e4. Widening the
+    # bound again would have been the wrong fix: an unbounded temperature is not a calibration,
+    # it is the measurement. It is caught here and reported as such.
+    ev_pred = ev_p.argmax(axis=1)
+    distinct_pred = sorted({int(v) for v in ev_pred})
+    pmax = ev_p.max(axis=1)
+    pmax_spread = float(pmax.std())
+    pmax_min, pmax_max = float(pmax.min()), float(pmax.max())
+    degenerate = len(distinct_pred) <= 1 or pmax_spread < 1e-6
+
+    boundary = False
+    try:
+        t_hat = fit_temperature(fit_logits, fit_y)
+    except ValueError:
+        # The optimum sits on the search bound, i.e. the best available temperature is "as large
+        # as you like". Keep going with T = 1 (the uncalibrated model) so the rest of the report
+        # is still produced and comparable, and let the verdict below refuse to call it a pass.
+        boundary = True
+        t_hat = 1.0
     ece_before = ece(ev_p, ev_y)
     ece_after = ece(probabilities(ev_logits, t_hat), ev_y)
     q = conformal_quantile(probabilities(fit_logits, t_hat), fit_y, args.alpha)
@@ -350,6 +391,10 @@ def main(argv: list[str] | None = None) -> int:
     sets = prediction_sets(cal_p, q)
     cov = coverage(sets, ev_y)
     size = float(sets.sum(axis=1).mean())
+    if boundary:
+        # Report the uncalibrated ECE as "after" too, so the table cannot show a flattering
+        # improvement that was produced by the fallback rather than by the fit.
+        ece_after = ece_before
 
     lines = [
         "# T-05b threshold calibration (FF-20b)",
@@ -367,12 +412,43 @@ def main(argv: list[str] | None = None) -> int:
         "",
         "| quantity | value |",
         "|---|---|",
-        f"| fitted temperature T | **{t_hat:.4f}** |",
+        f"| fitted temperature T | **{'UNBOUNDED -- the NLL fit ran to the search bound' if boundary else f'{t_hat:.4f}'}** |",
         f"| ECE before (T=1) | {ece_before:.4f} |",
-        f"| ECE after | **{ece_after:.4f}** |",
+        f"| ECE after | **{ece_after:.4f}**{'' if not boundary else ' (fallback: the fit hit its bound, so T=1 is reported and no improvement is claimed)'} |",
         f"| conformal quantile q | {q:.4f} |",
         f"| empirical coverage (held-out) | **{cov:.4f}** |",
         f"| mean prediction-set size | **{size:.2f} / 6** |",
+        "",
+        "## Degeneracy diagnostics (read this before the table above)",
+        "",
+        "| quantity | value |",
+        "|---|---|",
+        f"| distinct classes ever predicted on the held-out split | **{len(distinct_pred)} / 6** |",
+        f"| which | {[labels[i] for i in distinct_pred]} |",
+        f"| std of per-clip max probability | **{pmax_spread:.6f}** |",
+        f"| min / max of per-clip max probability | {pmax_min:.6f} / {pmax_max:.6f} |",
+        "",
+        ("🔴 **This model's output does not depend on its input.** It predicts "
+         f"{len(distinct_pred)} class(es) and the per-clip maximum probability barely moves "
+         f"(std={pmax_spread:.6f}). Under those conditions the fitted temperature is not a "
+         "calibration of anything -- it is a single scalar stretched until the average confidence "
+         "matches the base rate, and the conformal set has to grow towards all six classes to buy "
+         "coverage. **No threshold derived from this model can make the App's confidence "
+         "meaningful**, and that is a property of the artifact, not of the calibration procedure."
+         if degenerate else
+         ("🟠 **Not degenerate, but not calibratable either -- and these are two different "
+          "failures.** The output *does* vary across clips (it names "
+          f"{len(distinct_pred)} of 6 classes, per-clip max probability spread "
+          f"{pmax_spread:.4f}), so it is not a constant predictor. But **no finite temperature "
+          "minimises the NLL**, and buying "
+          f"{1 - args.alpha:.0%} coverage costs a mean prediction set of **{size:.2f} of 6 "
+          "classes** -- i.e. the conformal gate can only certify by returning almost every "
+          "class. Read the two facts together: the outputs move, but they do not move *with the "
+          "label*. An unbounded temperature is therefore the measurement, not a bug in the "
+          "fitter, and the confidence cannot be made meaningful by any threshold."
+          if boundary else
+          "✅ The model's output varies across clips, predicts more than one class, and admits a "
+          "finite NLL-minimising temperature -- so the numbers above describe a real calibration.")),
         "",
         "## How to read the set size",
         "",
@@ -384,6 +460,8 @@ def main(argv: list[str] | None = None) -> int:
         "",
         f"- ECE improved by the fit: **{'yes' if ece_after < ece_before else 'NO'}**",
         f"- coverage met: **{'yes' if cov >= (1 - args.alpha) - 0.02 else 'NO'}**",
+        f"- model degenerate (output independent of input): **{'YES' if degenerate else 'no'}**",
+        f"- NLL fit hit its search bound (T unbounded): **{'YES' if boundary else 'no'}**",
         "",
     ]
     out = Path(args.report)
@@ -398,10 +476,18 @@ def main(argv: list[str] | None = None) -> int:
             print("  " + ln)
     print(f"\n  wrote {out}")
 
-    ok = (ece_after < ece_before) and (cov >= (1 - args.alpha) - 0.02)
-    print(f"\nRESULT: {'PASS' if ok else 'FAIL'} "
-          f"(ECE {'improved' if ece_after < ece_before else 'DID NOT improve'}, "
-          f"coverage {cov:.4f} vs target {1 - args.alpha:.2f}, set size {size:.2f}/6)")
+    # The verdict is deliberately NOT just "ECE went down". A degenerate model can have its ECE
+    # driven to zero by flattening towards the uniform distribution, which is the opposite of a
+    # useful calibration -- so degeneracy and an unbounded fit are hard failures regardless of
+    # what the ECE column says.
+    ok = ((not degenerate) and (not boundary)
+          and (ece_after < ece_before) and (cov >= (1 - args.alpha) - 0.02))
+    why = ("model output is independent of its input -- no threshold derived from it can be "
+           "meaningful" if degenerate else
+           "no finite temperature minimises the NLL -- the fit is unbounded" if boundary else
+           f"ECE {'improved' if ece_after < ece_before else 'DID NOT improve'}, "
+           f"coverage {cov:.4f} vs target {1 - args.alpha:.2f}, set size {size:.2f}/6")
+    print(f"\nRESULT: {'PASS' if ok else 'FAIL'} ({why})")
     return 0 if ok else 1
 
 

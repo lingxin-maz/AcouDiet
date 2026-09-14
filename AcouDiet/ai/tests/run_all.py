@@ -279,6 +279,13 @@ def main() -> int:
     r.check("an unsupportable coverage claim is refused",
             "unsupportable coverage claim was refused" in out3)
 
+    # FF-20b is not satisfied by machinery alone -- it asks for the calibration *process written
+    # into a test report*. A missing report is the exact state this repository was in before
+    # ADR-40, so its presence is asserted rather than assumed.
+    r.check("the FF-20b calibration report exists (the spec requires one)",
+            (AI / "reports" / "threshold_calibration.md").exists(),
+            "ai/reports/threshold_calibration.md")
+
     # ---- summary ------------------------------------------------------------------------
     print()
     print("=" * 78)

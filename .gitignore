@@ -38,6 +38,16 @@ AcouDiet/ai/data/parity_out/
 # pixels.
 AcouDiet/app/tool/visual_capture/
 
+# ---- Derived measurement intermediates ---------------------------------------------------
+# The per-sample probability dump behind `ai/reports/threshold_calibration.md` (FF-20b). It is a
+# 173 KB intermediate of a specific model sha256 and is regenerated in one command:
+#   python tool/evaluate_shipped_model.py --predictions ai/artifacts/shipped_predictions.jsonl
+# The *report* it feeds is committed, because FF-20b requires the calibration process to be
+# written down; the dump is not, because it would silently go stale against a new model.
+AcouDiet/ai/artifacts/shipped_predictions.jsonl
+AcouDiet/ai/artifacts/*.keras
+AcouDiet/ai/artifacts/saved_model/
+
 # ---- Release artifacts -------------------------------------------------------------------
 # APKs are 60-600 MB and reproducible from source + the model card; `dist/*.sha256` plus the
 # release docs record what was shipped and what it hashed to. See ADR-36 for the honest limitation

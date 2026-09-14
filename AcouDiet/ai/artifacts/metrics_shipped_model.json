@@ -1,0 +1,265 @@
+{
+  "schemaVersion": "1.0",
+  "what": "Accuracy of the SHIPPED .tflite measured on this repo's frozen splits. This is NOT ai/src/evaluate.py's metrics.json (that one measures a locally trained Keras model and is therefore not produced here).",
+  "model": {
+    "path": "app\\assets\\models\\acoudiet_fp32_v1.3.0.tflite",
+    "sha256": "31fba3ecba852cb51ac8166ab49cba1f4be3f4b23cafbfc5cace8780bfa019f4",
+    "bytes": 4053556,
+    "cardVersion": "1.3.0",
+    "cardSha256": "31fba3ecba852cb51ac8166ab49cba1f4be3f4b23cafbfc5cace8780bfa019f4",
+    "shaMatchesCard": true
+  },
+  "frontEnd": {
+    "source": "ai/src/augment.py::feature_tensor(augment_on=False) (the same call ai/src/evaluate.py::predict_split makes)",
+    "patchSamples": 65536,
+    "nMels": 128,
+    "nFrames": 128
+  },
+  "splits": {
+    "test_public": {
+      "n": 468,
+      "top1": 0.16666666666666666,
+      "wilson95": {
+        "low": 0.13564447836049948,
+        "high": 0.20311646736096567
+      },
+      "confusionMatrix": {
+        "labels": [
+          "chips",
+          "cabbage",
+          "gummies",
+          "noodles",
+          "carrot",
+          "drink"
+        ],
+        "matrix": [
+          [
+            0,
+            0,
+            0,
+            78,
+            0,
+            0
+          ],
+          [
+            0,
+            78,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            50,
+            28,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            28,
+            50,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            76,
+            0,
+            2,
+            0,
+            0
+          ],
+          [
+            43,
+            35,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "perClass": [
+        {
+          "label": "chips",
+          "support": 78,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "cabbage",
+          "support": 78,
+          "precision": 0.29213483146067415,
+          "recall": 1.0,
+          "f1": 0.45217391304347826
+        },
+        {
+          "label": "gummies",
+          "support": 78,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "noodles",
+          "support": 78,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "carrot",
+          "support": 78,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "drink",
+          "support": 78,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      ],
+      "meanConfidence": 0.5612746396253252,
+      "truncated": false,
+      "requestedRows": 468,
+      "missingFiles": [],
+      "missingCount": 0,
+      "unknownLabels": []
+    },
+    "test_mobile": {
+      "n": 144,
+      "top1": 0.16666666666666666,
+      "wilson95": {
+        "low": 0.11463310915770045,
+        "high": 0.23602264893765737
+      },
+      "confusionMatrix": {
+        "labels": [
+          "chips",
+          "cabbage",
+          "gummies",
+          "noodles",
+          "carrot",
+          "drink"
+        ],
+        "matrix": [
+          [
+            0,
+            0,
+            0,
+            24,
+            0,
+            0
+          ],
+          [
+            0,
+            24,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            16,
+            8,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            7,
+            17,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            24,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            16,
+            8,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "perClass": [
+        {
+          "label": "chips",
+          "support": 24,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "cabbage",
+          "support": 24,
+          "precision": 0.2962962962962963,
+          "recall": 1.0,
+          "f1": 0.45714285714285713
+        },
+        {
+          "label": "gummies",
+          "support": 24,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "noodles",
+          "support": 24,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "carrot",
+          "support": 24,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "drink",
+          "support": 24,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      ],
+      "meanConfidence": 0.5638736136671569,
+      "truncated": false,
+      "requestedRows": 144,
+      "missingFiles": [],
+      "missingCount": 0,
+      "unknownLabels": []
+    }
+  },
+  "overall": {
+    "testSet": "test_mobile",
+    "n": 144,
+    "top1": 0.16666666666666666,
+    "wilson95": {
+      "low": 0.11463310915770045,
+      "high": 0.23602264893765737
+    }
+  }
+}

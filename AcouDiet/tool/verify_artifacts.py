@@ -312,6 +312,37 @@ def main() -> int:
             if banned in blob:
                 failures.append(f"ACD-ART-005: metrics.json mentions the cut item '{banned}'")
 
+    # ---- 11: the shipped model's OWN measured accuracy (ADR-37) ----------------------------
+    #
+    # `metrics.json` above describes a **locally trained Keras model** (evaluate.py feeds it the
+    # `.keras`, not the `.tflite`), which is why it is legitimately absent here -- writing it from
+    # some other model would be a false claim about the artifact users install. What the repo CAN
+    # and now DOES measure is the accuracy of the model that actually ships, via
+    # `tool/evaluate_shipped_model.py`. This gate makes that measurement impossible to let go
+    # stale: the report must exist AND must name the bytes currently in `app/assets/models/`.
+    shipped_report = ARTIFACTS / "metrics_shipped_model.json"
+    if not shipped_report.exists():
+        failures.append(
+            "ACD-ART-006: ai/artifacts/metrics_shipped_model.json is missing -- the accuracy of "
+            "the SHIPPED model has not been measured. Run: python tool/evaluate_shipped_model.py")
+    else:
+        rep = load(shipped_report)
+        rep_sha = ((rep.get("model") or {}).get("sha256")) or ""
+        real_sha = None
+        if tflites:
+            real_sha = sha256(tflites[0])
+        if real_sha and rep_sha != real_sha:
+            failures.append(
+                f"ACD-ART-006: metrics_shipped_model.json measured {rep_sha[:16]}... but the "
+                f"shipped model hashes to {real_sha[:16]}... -- the measurement is STALE. Re-run "
+                f"python tool/evaluate_shipped_model.py")
+        else:
+            overall = rep.get("overall") or {}
+            top1 = overall.get("top1")
+            ci = overall.get("wilson95") or {}
+            print(f"  measured: shipped model top1 = {top1} on {overall.get('testSet')} "
+                  f"(n={overall.get('n')}, Wilson95 [{ci.get('low')}, {ci.get('high')}])")
+
     print()
     if pending and not tflites and not failures:
         print("STATUS: NOT BUILT (placeholder card only, no model)")

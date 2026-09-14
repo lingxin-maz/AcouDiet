@@ -304,6 +304,18 @@ abstract final class AcouTheme {
   static const TextStyle body = TextStyle(fontSize: 15, color: ink, height: 1.35);
   static const TextStyle bodyMuted = TextStyle(fontSize: 14, color: inkMuted, height: 1.35);
   static const TextStyle caption = TextStyle(fontSize: 12, color: inkMuted, height: 1.3);
+
+  /// ADR-38: the four axis captions of the radar.
+  ///
+  /// It is a token for the same reason every other style is: the radar's labels are painted by a
+  /// `CustomPainter`, which has no `DefaultTextStyle` to inherit from, so before this the only text
+  /// in the app that could not be restyled or scaled was the text drawn inside a chart.
+  static const TextStyle chartAxisLabel = TextStyle(
+    fontSize: 11,
+    color: inkMuted,
+    height: 1.2,
+  );
+
   static const TextStyle metric = TextStyle(
     fontSize: 15,
     color: ink,

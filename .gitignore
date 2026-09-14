@@ -31,6 +31,13 @@ AcouDiet/ai/data/raw/
 AcouDiet/ai/data/augmented/
 AcouDiet/ai/data/parity_out/
 
+# ---- Review artefacts --------------------------------------------------------------------
+# `app/tool/visual_capture_test.dart` renders the real pages to PNG so the UI work can be reviewed
+# against `软件UI界面设计图/*.png` without a device (ADR-38). The renders are derived output: one
+# command regenerates them, and the *checks* that must stay green are the widget tests, not the
+# pixels.
+AcouDiet/app/tool/visual_capture/
+
 # ---- Release artifacts -------------------------------------------------------------------
 # APKs are 60-600 MB and reproducible from source + the model card; `dist/*.sha256` plus the
 # release docs record what was shipped and what it hashed to. See ADR-36 for the honest limitation

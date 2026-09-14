@@ -25,6 +25,7 @@ import '../../state/acou_scope.dart';
 import '../../state/notifiers.dart' show ReportNotifier;
 import '../../theme/acou_format.dart' show AcouFormat, ChartAxis;
 import '../../theme/acou_theme.dart';
+import '../../widgets/acou_app_bar.dart';
 import '../../widgets/advice_list_item.dart';
 import '../../widgets/demo_banner.dart';
 import '../../widgets/drill_down_sheet.dart';
@@ -81,10 +82,10 @@ class _ReportPageState extends State<ReportPage> {
       // app bar look of the other pages by painting the gradient *behind* the bar; `_ScopeSwitcher`
       // reserves the toolbar inset so nothing hides under it.
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: Text(_scope == ReportScope.daily
+      appBar: AcouPageHeader(
+        title: _scope == ReportScope.daily
             ? UiStrings.reportDailyTitle
-            : UiStrings.reportTitle),
+            : UiStrings.reportTitle,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

@@ -120,11 +120,19 @@ class RecordCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                // The kilocalorie badge is only rendered together with the portion line below;
-                // a card with no knowledge-base entry shows neither.
-                if (card.hasKnowledge)
-                  Text(card.kcalBadge, style: AcouTheme.body),
+                // The attribute-and-portion line, then the confidence chip: the mockup's second and
+                // third lines. The kilocalorie is not one of them -- it now sits in the right-hand
+                // column above, which is where mockup `8.png` puts it and where the header comment
+                // of this file always claimed it was.
+                if (card.estimateLine.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    card.estimateLine,
+                    style: AcouTheme.caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
                 const SizedBox(height: AcouTheme.spaceXs),
                 Wrap(
                   spacing: AcouTheme.spaceXs,
@@ -141,20 +149,24 @@ class RecordCard extends StatelessWidget {
                       _Tag(text: card.sourceBadge, tone: AcouTheme.demoBannerInk),
                   ],
                 ),
-                if (card.estimateLine.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    card.estimateLine,
-                    style: AcouTheme.caption,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
               ],
             ),
           ),
-          if (onTap != null)
-            const Icon(Icons.chevron_right, color: AcouTheme.inkMuted),
+          const SizedBox(width: AcouTheme.spaceSm),
+          // The mockups' right-hand metric column. The kilocalorie badge is still rendered only
+          // together with its portion line (`hasKnowledge`), so a record with no knowledge-base
+          // entry shows neither this column's value nor an estimate it does not have.
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (card.hasKnowledge)
+                Text(card.kcalBadge, style: AcouTheme.metric, textAlign: TextAlign.end),
+              if (onTap != null) ...[
+                const SizedBox(height: AcouTheme.spaceXs),
+                const Icon(Icons.chevron_right, color: AcouTheme.inkMuted),
+              ],
+            ],
+          ),
         ],
       ),
     );

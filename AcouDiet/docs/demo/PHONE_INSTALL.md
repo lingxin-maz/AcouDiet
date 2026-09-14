@@ -7,7 +7,25 @@
 
 ## 0. 拿哪个文件
 
-> 🟢 **2026-09-14 最新（`ADR-34`）：手机自测请用这一份** ——
+> 🟢 **2026-09-15 最新（`ADR-38`）：手机自测请用这一份** ——
+> **`AcouDiet-1.2.1-arm64-release-no-llm.apk`**，**70,858,649 B**（67.6 MB），
+> sha256 **`97f794770adda06b13c0f6ae7faa4733714c27281ab0b40e22640c5494e91add`**。
+> 相对 `1.2.0` 的变化**只在界面**（`ADR-38`）：四个顶层页面改成示意图那套**居中标题顶栏**
+> （品牌字标在左、页面操作在右，被 push 的页面自动换成返回箭头）；记录卡的千卡移到**右侧列**；
+> 「我的」每条入口补上一行描述；雷达四个轴名改为走设计系统并跟随系统字号；
+> 检测页圆盘在**还没有任何音频样本**时显示一层静态站波母题（不再是一个空绿圆）。
+> 声学模型、权限、口径**一个字节都没改**（仍是 `acoudiet_fp32_v1.3.0.tflite`）。
+>
+> ```powershell
+> python AcouDiet\tool\ui_fingerprint_check.py "<这个包>"        # 期望 RESULT: CURRENT UI   → exit 0
+> python AcouDiet\tool\check_apk_contents.py "<这个包>" --expect-no-internet   # 期望 exit 0
+> ```
+>
+> ⚠️ **同一体积的两个包可以内容完全不同**：`1.2.1` 与上一版**字节数恰好都是 70,858,649**，
+> sha256 却从 `9bfeb447…` 变成了 `97f79477…`（`ADR-24` 之后这是第二次撞上这种情况）。
+> **判断"装的是哪个包"只能看 sha256，不能看大小。**
+
+> 🟢 **2026-09-14（`ADR-34`）：无端侧语言模型的那一版** ——
 > **`AcouDiet-1.2.0-arm64-release-no-llm.apk`**，**65,525,041 B**（62.5 MB），
 > sha256 `edda873a6ecdf48d9c90619b15e9e236a93df2d227de222cdba255ea9979b2f3`。
 > **端侧语言模型（Qwen）已被整体删除**：包里没有 532 MB 的权重、没有 `libacoudiet_llm.so`、
@@ -49,7 +67,11 @@
 **`dist/` 里各包的实测指纹**（复核命令见 §3）：
 
 ```
-★ 1.2.0 no-llm bytes  = 65,525,041      ← 当前该用的那一份（ADR-34：无端侧语言模型）
+★ 1.2.1 no-llm bytes  = 70,858,649      ← 当前该用的那一份（ADR-38：顶栏 / 记录卡 / 我的 / 雷达 / 检测圆盘）
+               sha256 = 97f794770adda06b13c0f6ae7faa4733714c27281ab0b40e22640c5494e91add
+               包内模型 = acoudiet_fp32_v1.3.0.tflite  4,053,556 B  sha256 31fba3ec…19f4
+
+  1.2.0 no-llm bytes  = 65,525,041      ← ADR-34 那版界面（历史留档）
                sha256 = edda873a6ecdf48d9c90619b15e9e236a93df2d227de222cdba255ea9979b2f3
                包内模型 = acoudiet_fp32_v1.3.0.tflite  4,053,556 B  sha256 31fba3ec…19f4
 
@@ -65,7 +87,7 @@
 签名   = CN=AcouDiet TEST（release，测试密钥，见 §4）/ CN=Android Debug（profile）
          apksigner verify 退出码 0；zipalign -c -p 4 退出码 0（两者均实测）
 权限   = release：只有 RECORD_AUDIO + com.acoudiet.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION，
-         **无 INTERNET**（`1.2.0` 包实测：`ascii=False, utf16le=False`）
+         **无 INTERNET**（`1.2.1` 包实测：`ascii=False, utf16le=False`）
          profile：多一个 INTERNET（`aapt2 dump badging` 实测，见下方「一处闸门缺陷」）
 ABI    = release 四个 ABI 齐全（arm64-v8a / armeabi-v7a / x86 / x86_64）；
          早前"release 仅 arm64-v8a"的说法只对已不再维护的窄包成立
@@ -104,7 +126,7 @@ minSdk = 24（Android 7.0）· targetSdk = 34
 **三个包都含成品模型**，可直接用下面的命令核对（`ADR-22` 的教训：必须确认模型真的在包里）：
 
 ```powershell
-python _toolchain\check_apk_contents.py D:\Desktop\Food\AcouDiet\dist\AcouDiet-1.2.0-arm64-release-no-llm.apk --expect-no-internet
+python _toolchain\check_apk_contents.py D:\Desktop\Food\AcouDiet\dist\AcouDiet-1.2.1-arm64-release-no-llm.apk --expect-no-internet
 # 期望：acoudiet_fp32_v1.3.0.tflite 4,053,556 B，且 sha256 =
 #       31fba3ecba852cb51ac8166ab49cba1f4be3f4b23cafbfc5cace8780bfa019f4
 # 期望：包内 model_card.json 的 tfliteSha256 / tfliteBytes 与该 .tflite 逐项一致
@@ -174,7 +196,7 @@ release 包，**旧界面**）被留在 `_toolchain/tmp/` 里。它是 release �
 | # | 原因 | 怎么确认 | 怎么修 |
 |---|---|---|---|
 | 1 | **装的是旧签名的包，新包被 Android 拒了**：`app-debug.apk` 是 **Debug 密钥**，`dist` 里的 release 包是 **CN=AcouDiet TEST**，签名不同 → `INSTALL_FAILED_UPDATE_INCOMPATIBLE`，旧 App 原地不动 | 安装时是否闪过"未安装/应用未安装"；`adb install` 的退出码（**不是**输出里的 `Success` 字样，`ADR-22` 记录过这个判据缺陷） | `adb uninstall com.acoudiet.app` 再装 `dist` 的 release 包 |
-| 2 | **装的是另一个 APK 文件**（例如上面的 4 ABI 旧包、或几天前拷到手机里的旧文件） | 对着手机里那个文件跑 `python AcouDiet\tool\ui_fingerprint_check.py <文件>` | 用 §0 顶部那一份（`dist\AcouDiet-1.2.0-arm64-release-no-llm.apk`，sha256 `edda873a…b2f3`） |
+| 2 | **装的是另一个 APK 文件**（例如上面的 4 ABI 旧包、或几天前拷到手机里的旧文件） | 对着手机里那个文件跑 `python AcouDiet\tool\ui_fingerprint_check.py <文件>` | 用 §0 顶部那一份（`dist\AcouDiet-1.2.1-arm64-release-no-llm.apk`，sha256 `97f79477…91add`） |
 
 前置条件：手机 **Android 7.0（API 24）或更高**、CPU 为 **arm64**（近十年的手机基本都是）。
 包名 `com.acoudiet.app`，版本 `1.1.0`。
@@ -183,8 +205,8 @@ release 包，**旧界面**）被留在 `_toolchain/tmp/` 里。它是 release �
 
 ## 1. 装法 A：只用手机（不用电脑）
 
-1. 把 §0 顶部那一份 `AcouDiet-1.2.0-arm64-release-no-llm.apk` 传到手机
-   （微信文件传输 / 云盘 / 数据线拷进「下载」目录都行）。**595 MB，传输要一会儿**；
+1. 把 §0 顶部那一份 `AcouDiet-1.2.1-arm64-release-no-llm.apk` 传到手机
+   （微信文件传输 / 云盘 / 数据线拷进「下载」目录都行）。**67.6 MB，传输很快**；
 2. 手机上点这个文件安装。第一次会提示「不允许安装未知应用」→ 去
    **设置 → 应用 → 特殊应用权限 → 安装未知应用**，给「文件管理器」或你点的那个应用放行；
 3. 装完桌面出现 **AcouDiet**，图标是绿底啃咬波形。
@@ -207,7 +229,7 @@ $adb = 'D:\Desktop\Food\_toolchain\android-sdk\platform-tools\adb.exe'
 # 0) 如果装过 debug 版（签名不同），先卸载；不卸的话下面那条 install 会被拒
 & $adb uninstall com.acoudiet.app
 
-& $adb install -r "D:\Desktop\Food\AcouDiet\dist\AcouDiet-1.2.0-arm64-release-no-llm.apk"
+& $adb install -r "D:\Desktop\Food\AcouDiet\dist\AcouDiet-1.2.1-arm64-release-no-llm.apk"
 # ⚠️ 看**退出码**，不要只看输出里有没有 Success 字样：输出被截断时两者都看不到（ADR-22）
 "install exit = $LASTEXITCODE"
 
@@ -234,7 +256,7 @@ $adb = 'D:\Desktop\Food\_toolchain\android-sdk\platform-tools\adb.exe'
 # 【当前实际用法·推荐】一条命令完成"构建 + 命名 + 包内取证 + sha256"：
 powershell -NoProfile -ExecutionPolicy Bypass `
     -File D:\Desktop\Food\AcouDiet\tool\build_release_v11.ps1 `
-    -Version 1.2.0 -OutName 'AcouDiet-1.2.0-arm64-release-no-llm.apk'
+    -Version 1.2.1 -OutName 'AcouDiet-1.2.1-arm64-release-no-llm.apk'
 
 # ⚠️ ADR-32 加的护栏（实测有效）：目标文件已存在时脚本**直接失败**，除非显式加 -Force。
 #   理由：换模型重打若沿用同名，旧包会被静默覆盖而**不可恢复**（本仓不是 git 仓库，
@@ -329,6 +351,7 @@ D:\Desktop\Food\_toolchain\keys\acoudiet-test.jks
 | **切 Tab 先刷新**（ADR-23） | 点底部按钮切换时，先显示该页的「正在读取…」，**不会先闪一下旧数字** |
 | **持久化** | 产生一条记录后**杀掉 App 重开**，`本周记录 N 次` 与「今日记录」列表应还在 |
 | **界面已按投放的示意图重画**（ADR-24） | ① 首页 / 记录 / 检测 / 我的 / 报告都是薄荷→奶油渐变 + 白色圆角卡片；② 底部四个 Tab 的**选中项是薄荷圆角块**（不再是 Material 默认样式）；③ 记录页顶部有 **`全部 / 早餐 / 午餐 / 晚餐 / 零食 / 饮品`** 药丸筛选 —— 点它会过滤时间轴，但上方的「今日热量 / 已记录 / 零食」**始终是今日整体**，不随筛选变化；筛空时显示「这一餐段还没有记录」而不是空白；④ 记录卡片之间有**薄荷圆点时间轴**，日期头是 `今天 9月10日 ★`；⑤ 检测页预测卡显示**中文食物名**（`薯片 91%`，不再是 `chips 91%`） |
+| **顶栏与卡片版式**（`ADR-38`） | ① 记录 / 报告 / 检测 / 我的四个页面的**页面标题在顶栏正中**，左边是 `AcouDiet` 字标、右边是各页自己的按钮；**从首页右上角进「我的」时，左槽变成返回箭头**（这是能退回首页的唯一出口）；② 记录卡的**千卡在卡片右侧列**（名称与「属性 · 份量」在左，置信度 chip 在最下面）；③ 「我的」的每一行标题下面**多了一行说明**；④ 检测页圆盘在**还没有任何音频样本**时显示一层**静态**声波母题（它不动、也不代表任何读数，旁边仍写「当前静默」；一有真声音就换成实时波形） |
 | **报告页两块 + 我的页三宫格**（ADR-24 补丁轮） | ① 报告页「本周」底部「健康建议」是**浅绿渐变卡**（示意图里是中绿底白字，白字约 2.5:1 违反对比度红线，故只抄形状不抄字色）；② 「最近识别记录」是**横滑瓦片**（最新 6 条，点开进记录详情）；③ 我的页有 **`总进食次数 / 平均咀嚼速度 / 零食次数`** 三格 —— 它们与报告页「本周」是**同一个 7 日窗口**；数据读不到时三格一起显示 `--`，窗口里没有咀嚼样本时速度格显示 `无样本`（**不是** `正常`） |
 | 权限声明 | `aapt2 dump badging app-release.apk` 里**没有** `INTERNET`；系统设置里该应用的「网络」权限项不存在 |
 

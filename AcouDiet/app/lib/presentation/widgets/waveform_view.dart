@@ -30,6 +30,7 @@ class WaveformView extends StatefulWidget {
     this.silentAfter,
     this.stroke,
     this.baseline,
+    this.idleSilhouette,
   });
 
   /// The live RMS (`0..1`). `null` renders the silent baseline.
@@ -47,6 +48,34 @@ class WaveformView extends StatefulWidget {
   /// them with white-on-mint, which is what the mockups' detection screen shows.
   final Color? stroke;
   final Color? baseline;
+
+  /// ADR-38: the **idle hero motif** of the detection disc -- a fixed, symmetric standing wave in
+  /// this colour, painted only while there is no live sample at all.
+  ///
+  /// Why it exists: the mockups' detection screen is a large mint disc with a waveform across it,
+  /// and a `null` level (or the first frames after the microphone opens) used to render that disc
+  /// as an empty green circle with a hairline through the middle -- the one screen of the six that
+  /// did not look like its own design.
+  ///
+  /// Why it is not a fake measurement: it is **static** (it never moves, so no two frames differ),
+  /// it is drawn at low alpha, and it disappears the instant a real sample arrives. It carries no
+  /// value, exactly like `AcouTheme.starGold`; the status line beside it still says 「当前静默」
+  /// and the semantic label is unchanged. `null` (the default) paints nothing, so every other
+  /// caller of [WaveformView] keeps the strictly live rendering.
+  final Color? idleSilhouette;
+
+  /// ADR-38: the one predicate that decides whether the idle motif is painted.
+  ///
+  /// It is a named function rather than an inline `&&` so the rule is testable without a raster:
+  /// the motif appears **only** when the caller asked for one, **no** sample has arrived, and the
+  /// live level is at zero -- i.e. only when there is genuinely nothing to draw. Any live sample
+  /// takes over immediately.
+  static bool showsIdleSilhouette({
+    required bool hasSamples,
+    required double rms,
+    required Color? idle,
+  }) =>
+      idle != null && !hasSamples && rms <= 0;
 
   @override
   State<WaveformView> createState() => _WaveformViewState();
@@ -106,6 +135,14 @@ class _WaveformViewState extends State<WaveformView> {
               level: silent ? 0 : _rms,
               stroke: widget.stroke ?? AcouTheme.seed,
               baseline: widget.baseline ?? AcouTheme.outline,
+              // The motif stands in for "nothing to draw yet" and nothing else.
+              idleSilhouette: WaveformView.showsIdleSilhouette(
+                hasSamples: bars.isNotEmpty,
+                rms: _rms,
+                idle: widget.idleSilhouette,
+              )
+                  ? widget.idleSilhouette
+                  : null,
             ),
           ),
         ),
@@ -121,6 +158,7 @@ class _WavePainter extends CustomPainter {
     required this.level,
     required this.stroke,
     required this.baseline,
+    this.idleSilhouette,
   });
 
   final List<double> bars;
@@ -128,6 +166,7 @@ class _WavePainter extends CustomPainter {
   final double level;
   final Color stroke;
   final Color baseline;
+  final Color? idleSilhouette;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -141,10 +180,30 @@ class _WavePainter extends CustomPainter {
     );
 
     final slot = size.width / barCount;
+    final barWidth = math.max(1.5, slot * 0.5);
     final paint = Paint()
       ..color = stroke
-      ..strokeWidth = math.max(1.5, slot * 0.5)
+      ..strokeWidth = barWidth
       ..strokeCap = StrokeCap.round;
+
+    // The idle motif: one period of a standing wave, tapering to the baseline at both ends. It is
+    // computed from the slot index alone, so it is identical on every frame and cannot be read as
+    // a reading. See [WaveformView.idleSilhouette].
+    final motif = idleSilhouette;
+    if (motif != null) {
+      final idle = Paint()
+        ..color = motif
+        ..strokeWidth = barWidth
+        ..strokeCap = StrokeCap.round;
+      for (var i = 0; i < barCount; i++) {
+        final t = barCount == 1 ? 0.5 : i / (barCount - 1);
+        final envelope = math.sin(math.pi * t);
+        final ripple = 0.45 + 0.55 * math.sin(t * 6 * math.pi).abs();
+        final half = (size.height / 2 - 4) * (0.10 + 0.80 * envelope * ripple);
+        final x = slot * i + slot / 2;
+        canvas.drawLine(Offset(x, mid - half), Offset(x, mid + half), idle);
+      }
+    }
 
     for (var i = 0; i < barCount; i++) {
       // Newest sample on the right; unfilled slots stay on the baseline.
@@ -170,7 +229,10 @@ class _WavePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WavePainter old) =>
-      old.level != level || old.bars.length != bars.length || old.bars != bars;
+      old.level != level ||
+      old.bars.length != bars.length ||
+      old.bars != bars ||
+      old.idleSilhouette != idleSilhouette;
 }
 
 /// The mockups' detection visual: one large mint disc with the live waveform inside it.
@@ -222,6 +284,10 @@ class WaveCircle extends StatelessWidget {
               stroke: AcouTheme.onMint,
               // The mockup has no baseline line inside the disc: silence is the flat middle.
               baseline: const Color(0x33FFFFFF),
+              // ADR-38: before the first sample the disc shows the mockups' standing-wave motif
+              // instead of an empty circle. Literal alpha, because `withOpacity` / `withValues`
+              // are spelled differently across Flutter releases (same reason as `AcouTheme.seedSoft`).
+              idleSilhouette: const Color(0x4DFFFFFF),
             ),
           ),
         ),

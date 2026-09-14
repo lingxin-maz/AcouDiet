@@ -37,10 +37,16 @@ class FourDimRadar extends StatelessWidget {
           child: CustomPaint(
             painter: _RadarPainter(
               axes: score.axes,
-              ink: AcouTheme.inkMuted,
               outline: AcouTheme.outline,
               fill: AcouTheme.seedSoft,
               stroke: AcouTheme.seed,
+              // ADR-38: the labels used to be built inside the painter from a bare
+              // `TextStyle(fontSize: 11, color: ink)` -- the one piece of text in the app that came
+              // from no token and, because a `CustomPainter` has no `DefaultTextStyle`, the one
+              // piece that ignored the reader's text scale. Both now arrive from the widget, which
+              // is the only place that has a `BuildContext`.
+              labelStyle: AcouTheme.chartAxisLabel,
+              textScaler: MediaQuery.textScalerOf(context),
             ),
           ),
         ),
@@ -52,17 +58,19 @@ class FourDimRadar extends StatelessWidget {
 class _RadarPainter extends CustomPainter {
   _RadarPainter({
     required this.axes,
-    required this.ink,
     required this.outline,
     required this.fill,
     required this.stroke,
+    required this.labelStyle,
+    required this.textScaler,
   });
 
   final List<ScoreAxisView> axes;
-  final Color ink;
   final Color outline;
   final Color fill;
   final Color stroke;
+  final TextStyle labelStyle;
+  final TextScaler textScaler;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -136,10 +144,11 @@ class _RadarPainter extends CustomPainter {
       final painter = TextPainter(
         text: TextSpan(
           text: axis.displayable ? axis.label : '${axis.label} --',
-          style: TextStyle(fontSize: 11, color: ink),
+          style: labelStyle,
         ),
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
+        textScaler: textScaler,
       )..layout(maxWidth: 92);
       // `.clamp` is declared on `num` and returns `num`, so the result must be narrowed back to
       // `double` before it can go into an `Offset`. (The analyzer caught this; nothing before it
@@ -165,5 +174,9 @@ class _RadarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RadarPainter old) =>
-      old.axes != axes || old.stroke != stroke || old.fill != fill;
+      old.axes != axes ||
+      old.stroke != stroke ||
+      old.fill != fill ||
+      old.labelStyle != labelStyle ||
+      old.textScaler != textScaler;
 }

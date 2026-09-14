@@ -161,6 +161,8 @@ enum ClearDataPhase { idle, confirming, clearing, done, failed }
 | 13 | 视觉与文案人工核对 | 见下表逐项核对表 | 全部 ✓ |
 | 14 | 三宫格三格齐全且是冻结口径（`ADR-24`） | `test('the overview panel shows the three frozen values')` + `ui_presenter_tests` 的 `the overview records tile carries the unit` 等 | 标签 `总进食次数` / `平均咀嚼速度` / `零食次数` 各一次；`28 次` / `5 次` 与 `WeekSummary` 相等；速度为**档位词**（`0.7 s → 正常`），不是数字 |
 | 15 | 三宫格降级契约（`ADR-24`） | `test('a failed overview query degrades all three tiles to --')` + `test('a window with no chewing sample says 无样本, never 正常')` | 任一查询失败 → `--` **恰好 3 个**且不出现 `正常`；无咀嚼样本 → `无样本` 且不出现 `正常` |
+| 16 | 每个入口行都有**一行描述**，且描述不引入新说法（`ADR-38`） | `flutter test test/ui/mockup_layout_test.dart` 的 `each is exactly the clause after the comma of its own row's spoken label` | 四条（健康报告 / 隐私设置 / 现场自检 / 关于）各渲染一行描述；**逐字满足 `spoken == '$title，$subtitle'`**；描述行被 `ExcludeSemantics` 包住，**读屏不得把一行念两遍** |
+| 17 | 顶栏标题居中（`ADR-38`） | `flutter test test/ui/app_bar_test.dart` | 「我的」的标题中心与 `AppBar` 中心偏差 < 1 逻辑像素；**作为被 push 的页面时左槽是返回箭头**（它是从首页右上角进入的，没有返回箭头即死路） |
 
 **人工核对表（我的 / 设置，9 项）**
 
@@ -169,7 +171,7 @@ enum ClearDataPhase { idle, confirming, clearing, done, failed }
 | 1 | 坚持天数 | **动态计数**（`5.png`/`9.png` 的固定「已坚持记录 7 天」须改） |
 | 2 | 数据导出入口 | 保留入口但**置灰**并标 `v1.1`（`X-03` 裁剪）；点击不写文件、不写剪贴板、不分享（剪贴板出口**只属于第 9 项的「复制为文本」按钮**） |
 | 3 | 成就区 | **静态展示**，无解锁逻辑（`X-04`；`9.png` 的「我的成就 ×2」须降级） |
-| 4 | 入口齐全 | 健康报告可跳 `U-04`；隐私设置含「端侧推理，原始音频本地处理不上传」且**必须**同时给出「无网络权限」表述 |
+| 4 | 入口齐全 | 健康报告可跳 `U-04`；隐私设置含「端侧推理，原始音频本地处理不上传」且**必须**同时给出「无网络权限」表述。**`ADR-38` 起每条入口带一行描述**（示意图 `9.png`），但描述**只能复述该行已有的说法**，不得引入新指标或新承诺 |
 | 5 | 可携带性告知 | 页面内可见「数据仅存于本机，卸载即丢失」；v1.0 **无文件导出**途径（`ADR-P4`） |
 | 6 | 清空全部数据 | 二次确认 + 不可恢复提示；执行后无残留 |
 | 7 | 关于 + 排版 | 应用名 `AcouDiet` / `声膳`，版本号与构建一致；`9.png` 中「我的成就」重复出现两次的缺陷不得复现 |

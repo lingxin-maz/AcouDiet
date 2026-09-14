@@ -149,6 +149,9 @@ enum VoteStage { observing, unconfirmed, lowConfidence, confirmed, none }
 | 9 | 无网络依赖代码 | `rg -n "http\|dio\|socket\|WebSocket\|url_launcher" lib/` | 命中数 == 0 |
 | 10 | 文案红线零命中 | `rg -n "零操作\|完全无感\|识别所有食物\|准确识别食物\|2 秒内出结果" lib/` | 命中数 == 0 |
 | 11 | 视觉与文案人工核对 | 见下表逐项核对表 | 全部 ✓ |
+| 12 | **顶层页面的标题居中，且被 push 的页面有返回出口** | `flutter test test/ui/app_bar_test.dart` | 标题中心与 `AppBar` 中心的偏差 < 1 逻辑像素；根页左槽 == 品牌字标；被 push 的页面左槽 == 返回箭头 |
+| 13 | **图表/子样式里的文字必须来自设计系统，并跟随用户字号** | `rg -n "TextStyle\(fontSize" lib/presentation/widgets/four_dim_radar.dart` + `test('the radar label style comes from the theme')` | 命中数 == 0；painter 的 `labelStyle` 与 `textScaler` 由 widget 传入（`ADR-38`：`CustomPainter` 没有 `DefaultTextStyle` 可继承，写死字号的那一处是全 App 唯一不跟随字号的文字） |
+| 14 | **静默态的波形只允许"活性"或"装饰"两种，不得伪装成读数** | `test('paints only when it was asked for, with nothing to show')` | `WaveformView.showsIdleSilhouette` 在（有样本 / 无样本）×（有母题 / 无母题）四组取值下的真值表固定；`WaveformView` 默认不带母题，只有检测圆盘 `WaveCircle` 传入 |
 
 **人工核对表（`U-06` 组件层，8 项）**
 
@@ -157,11 +160,13 @@ enum VoteStage { observing, unconfirmed, lowConfidence, confirmed, none }
 | 1 | 主题色板 | Material Design 3 语义色；正文对比度 ≥ 4.5:1 |
 | 2 | 雷达四轴 | 四轴等分 90°，标签不重叠、不出框，且与 FF-22 四维中文名逐字一致 |
 | 3 | 折线图 | 纵轴刻度单位随 `ChartAxis` 变化；**不显示热量目标线** |
-| 4 | 波形组件 | 静默态为水平基线，不闪烁、不残留上一会话波形 |
+| 4 | 波形组件 | **裸** `WaveformView` 静默态为水平基线，不闪烁、不残留上一会话波形。**例外（`ADR-38`）**：检测圆盘 `WaveCircle` 在**一个样本都还没到**时显示一层**静态**站波母题（永不移动、低透明度、有真样本即消失），它**不承载任何数值**，旁边的状态行照旧写「当前静默」；这是示意图 `3.png`/`10.png` 的观感要求，不是测量 |
 | 5 | 图标风格 | 6 类图标同风格、同尺寸基线 |
-| 6 | 条目卡片 | 三行结构与主方案 §3.4.1 标准模板逐行一致 |
+| 6 | 条目卡片 | 三行结构与主方案 §3.4.1 标准模板逐行一致；**千卡在卡片右侧列**（示意图 `8.png`，`ADR-38`） |
 | 7 | 空态文案 | 与各页 SPEC 指定文案逐字一致 |
 | 8 | 品牌与红线 | Logo/标题为 `AcouDiet` / `声膳`；无 `EatSense` / `ChewSense`；无 FF-25 禁用词 |
+
+> **顶栏（`ADR-38`）**：`widgets/acou_app_bar.dart` 的 `AcouPageHeader` / `AcouBrandMark` 是顶层页面顶栏的**唯一实现**。四页一律 `centerTitle` 语义（三段等宽 `Row`）、`extendBodyBehindAppBar: true`、左槽「字标（根页）/ 返回箭头（被 push 的页面）」。首页不设居中标题（示意图 `1.png` 没有），只画字标 + 两个操作。
 
 ## 8. 非功能约束
 

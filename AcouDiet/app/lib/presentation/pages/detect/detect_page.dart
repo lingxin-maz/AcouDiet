@@ -19,6 +19,7 @@ import '../../state/async_value.dart';
 import '../../state/notifiers.dart';
 import '../../theme/acou_theme.dart';
 import '../../theme/food_class.dart';
+import '../../widgets/acou_app_bar.dart';
 import '../../widgets/demo_banner.dart';
 import '../../widgets/food_icon.dart';
 import '../../widgets/state_view.dart';
@@ -40,7 +41,11 @@ class DetectPage extends StatelessWidget {
       // gradient as every other page, so "the whole app moved to the mockups' background" has no
       // exception and `test/ui/page_chrome_test.dart` can assert it without special-casing.
       return Scaffold(
-        appBar: AppBar(title: const Text(UiStrings.detectTabTitle)),
+        // ADR-38: this branch used to build a bare `AppBar` with no `extendBodyBehindAppBar`,
+        // so the gate screen alone showed an opaque bar sitting on the scaffold colour with the
+        // gradient starting underneath it. It is a page of this app like any other.
+        extendBodyBehindAppBar: true,
+        appBar: const AcouPageHeader(title: UiStrings.detectTabTitle),
         body: DecoratedBox(
           decoration: AcouTheme.pageGradientDecoration(),
           child: StateView(
@@ -54,7 +59,7 @@ class DetectPage extends StatelessWidget {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(title: const Text(UiStrings.detectTabTitle)),
+      appBar: const AcouPageHeader(title: UiStrings.detectTabTitle),
       body: DecoratedBox(
         decoration: AcouTheme.pageGradientDecoration(),
         child: AcouBuilder<DetectPredictionView>(

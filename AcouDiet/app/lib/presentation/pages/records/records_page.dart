@@ -22,6 +22,7 @@ import '../../presenters/records_presenter.dart';
 import '../../presenters/ui_strings.dart';
 import '../../state/acou_scope.dart';
 import '../../theme/acou_theme.dart';
+import '../../widgets/acou_app_bar.dart';
 import '../../widgets/demo_banner.dart';
 import '../../widgets/record_card.dart';
 import '../../widgets/state_view.dart';
@@ -72,8 +73,8 @@ class _RecordsPageState extends State<RecordsPage> {
     return Scaffold(
       // ADR-24: the mockups' records screen is a mint gradient page with floating white cards.
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text(UiStrings.recordsTitle),
+      appBar: AcouPageHeader(
+        title: UiStrings.recordsTitle,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

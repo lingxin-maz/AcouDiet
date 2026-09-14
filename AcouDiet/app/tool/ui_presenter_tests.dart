@@ -1813,6 +1813,14 @@ void _bannedWordingChecks() {
     UiStrings.weekSummaryCardTitle,
     UiStrings.scoreCardTitle,
     UiStrings.reportTrendTitle,
+    // ADR-38: the shared top bar's wordmark and the four entry descriptions of 「我的」. They are
+    // harvested like every other user-visible string, so the FF-25 red-line scan below covers
+    // them too -- a new string that nobody scans is a new string that can say anything.
+    UiStrings.appBrandShort,
+    UiStrings.healthReportEntrySubtitle,
+    UiStrings.privacyEntrySubtitle,
+    UiStrings.selfCheckEntrySubtitle,
+    UiStrings.aboutEntrySubtitle,
   ]);
 
   // The record surfaces, produced end to end for all six classes.

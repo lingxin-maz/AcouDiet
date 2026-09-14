@@ -17,6 +17,7 @@ import '../../presenters/ui_strings.dart';
 import '../../state/acou_scope.dart';
 import '../../state/async_value.dart';
 import '../../theme/acou_theme.dart';
+import '../../widgets/acou_app_bar.dart';
 import '../../widgets/demo_banner.dart';
 import '../../widgets/drill_down_sheet.dart';
 import '../../widgets/record_card.dart';
@@ -39,7 +40,7 @@ class HomePage extends StatelessWidget {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         titleSpacing: AcouTheme.spacePage,
-        title: const _BrandHeader(),
+        title: const AcouBrandMark(fullName: true),
         actions: [
           _HeaderAction(
             icon: Icons.badge_outlined,
@@ -138,36 +139,6 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
-}
-
-/// The brand row of the mockups: a mint logo tile, the one-word brand and a small version chip.
-class _BrandHeader extends StatelessWidget {
-  const _BrandHeader();
-
-  @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: AcouTheme.mintDeep,
-              borderRadius: BorderRadius.circular(AcouTheme.radiusSm),
-            ),
-            child: const Icon(Icons.graphic_eq, size: 18, color: AcouTheme.onMint),
-          ),
-          const SizedBox(width: AcouTheme.spaceSm),
-          const Text(
-            UiStrings.appTitle,
-            style: TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-              color: AcouTheme.ink,
-            ),
-          ),
-        ],
-      );
 }
 
 /// A rounded white square holding one header action (the mockups' two top-right buttons).

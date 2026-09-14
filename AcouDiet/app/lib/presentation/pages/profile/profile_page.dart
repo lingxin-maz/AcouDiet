@@ -18,6 +18,7 @@ import '../../presenters/ui_strings.dart';
 import '../../state/acou_scope.dart';
 import '../../state/notifiers.dart';
 import '../../theme/acou_theme.dart';
+import '../../widgets/acou_app_bar.dart';
 import '../../widgets/demo_banner.dart';
 import '../../widgets/state_view.dart';
 import '../demo/self_check_panel.dart';
@@ -35,7 +36,7 @@ class ProfilePage extends StatelessWidget {
     return Scaffold(
       // ADR-24: the mockups' profile screen is a mint gradient page with a white header card.
       extendBodyBehindAppBar: true,
-      appBar: AppBar(title: const Text(UiStrings.profileTitle)),
+      appBar: const AcouPageHeader(title: UiStrings.profileTitle),
       body: DecoratedBox(
         decoration: AcouTheme.pageGradientDecoration(),
         child: AcouBuilder<SettingsView>(
@@ -294,6 +295,7 @@ class EntryList extends StatelessWidget {
           _Entry(
             icon: Icons.insights_outlined,
             title: UiStrings.healthReportEntry,
+            subtitle: UiStrings.healthReportEntrySubtitle,
             spoken: UiStrings.healthReportEntrySpoken,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const ReportPage()),
@@ -337,7 +339,8 @@ class EntryList extends StatelessWidget {
           _Entry(
             icon: Icons.privacy_tip_outlined,
             title: UiStrings.privacyTitle,
-            spoken: '隐私设置，查看无网络权限与音频不落盘说明',
+            subtitle: UiStrings.privacyEntrySubtitle,
+            spoken: UiStrings.privacyEntrySpoken,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const PrivacyNoticePage()),
             ),
@@ -345,6 +348,7 @@ class EntryList extends StatelessWidget {
           _Entry(
             icon: Icons.badge_outlined,
             title: UiStrings.selfCheckEntry,
+            subtitle: UiStrings.selfCheckEntrySubtitle,
             spoken: UiStrings.selfCheckEntrySpoken,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const SelfCheckPanelPage()),
@@ -353,7 +357,8 @@ class EntryList extends StatelessWidget {
           _Entry(
             icon: Icons.info_outline,
             title: UiStrings.aboutTitle,
-            spoken: '关于 AcouDiet，查看版本与合规说明',
+            subtitle: UiStrings.aboutEntrySubtitle,
+            spoken: UiStrings.aboutEntrySpoken,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const AboutPage()),
             ),
@@ -368,12 +373,19 @@ class _Entry extends StatelessWidget {
     required this.title,
     required this.spoken,
     required this.onTap,
+    this.subtitle = '',
   });
 
   final IconData icon;
   final String title;
   final String spoken;
   final VoidCallback onTap;
+
+  /// ADR-38: mockup `9.png` gives every row a one-line description; this page was the only one
+  /// that shipped the rows bare. The line is **decorative in the accessibility tree** -- it is
+  /// `ExcludeSemantics`-able text beside a node whose label already says the same thing, so a
+  /// screen reader still hears one announcement per row, not two.
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -397,7 +409,28 @@ class _Entry extends StatelessWidget {
                     child: Icon(icon, size: 20, color: AcouTheme.gradeGood),
                   ),
                   const SizedBox(width: AcouTheme.spaceMd),
-                  Expanded(child: Text(title, style: AcouTheme.metric)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: AcouTheme.metric),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          // Excluded from the semantics tree on purpose: this row's `spoken` label
+                          // already carries the same sentence, so exposing it twice would make the
+                          // page announce each entry twice.
+                          ExcludeSemantics(
+                            child: Text(
+                              subtitle,
+                              style: AcouTheme.caption,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                   const Icon(Icons.chevron_right, color: AcouTheme.inkMuted),
                 ],
               ),

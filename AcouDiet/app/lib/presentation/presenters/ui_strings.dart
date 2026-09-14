@@ -22,6 +22,13 @@ abstract final class UiStrings {
   static const String appNameZh = '声膳';
   static const String appTitle = 'AcouDiet · 声膳';
 
+  /// ADR-38: the wordmark of the four inner pages' top bar.
+  ///
+  /// Not a second brand -- [appName] itself, drawn without the locale suffix, because that bar
+  /// shares its width with a centred page title and two actions (the mockups drop the suffix in
+  /// exactly the same place). The home header keeps the full [appTitle].
+  static const String appBrandShort = appName;
+
   // ---------------------------------------------------------------- shared states
 
   /// A-04-K3: the demonstration-data badge, verbatim; `U-01`/`U-03`/`U-04`/`U-05` share it.
@@ -288,6 +295,21 @@ abstract final class UiStrings {
   static const String healthReportEntrySpoken = '健康报告，查看周度饮食分析与建议';
   static const String selfCheckEntry = '现场自检';
   static const String selfCheckEntrySpoken = '现场自检，检查麦克风与模型是否可用';
+  static const String privacyEntrySpoken = '隐私设置，查看无网络权限与音频不落盘说明';
+  static const String aboutEntrySpoken = '关于 AcouDiet，查看版本与合规说明';
+
+  // ADR-38: the one-line description under each entry, which mockup `9.png` draws on every row and
+  // which this page was the only one to omit.
+  //
+  // ⚠️ Each is **exactly the clause after the comma of that row's `spoken` label** -- not merely
+  // "similar to it". The page has one sentence to say about each entry, and this slice of it is
+  // already in the accessibility tree; repeating a slice cannot introduce a claim the row did not
+  // already make. `test/ui/mockup_layout_test.dart` asserts the slice relationship for all four, so
+  // a description that drifts away from its own row's spoken label fails rather than ships.
+  static const String healthReportEntrySubtitle = '查看周度饮食分析与建议';
+  static const String privacyEntrySubtitle = '查看无网络权限与音频不落盘说明';
+  static const String selfCheckEntrySubtitle = '检查麦克风与模型是否可用';
+  static const String aboutEntrySubtitle = '查看版本与合规说明';
   static const String saveFailed = '设置未保存，请重试';
   static const String versionPrefix = '版本';
 

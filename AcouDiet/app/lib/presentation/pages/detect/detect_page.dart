@@ -1,4 +1,4 @@
-// app/lib/presentation/pages/detect/detect_page.dart
+﻿// app/lib/presentation/pages/detect/detect_page.dart
 //
 // U-02 · AI 检测页 -- the page the on-site demonstration depends on.
 //
@@ -10,7 +10,10 @@
 // The C-03 gate is enforced here as well as in the shell: when the start-up handshake has not
 // passed, the page renders the explanation and **no start button** (SPEC-U-02 section 6).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 
 import '../../presenters/detect_presenter.dart';
 import '../../presenters/ui_strings.dart';
@@ -57,7 +60,8 @@ class DetectPage extends StatelessWidget {
       );
     }
 
-    return Scaffold(
+    return AcouScrollEdge(
+      child: Scaffold(
       extendBodyBehindAppBar: true,
       appBar: const AcouPageHeader(title: UiStrings.detectTabTitle),
       body: DecoratedBox(
@@ -69,7 +73,7 @@ class DetectPage extends StatelessWidget {
               top: kToolbarHeight + MediaQuery.paddingOf(context).top,
               left: AcouTheme.spacePage,
               right: AcouTheme.spacePage,
-              bottom: AcouTheme.spaceXl,
+              bottom: AcouTheme.spaceXl + AcouTheme.bottomInset(context),
             ),
             children: [
             // The injection badge is driven only by `patch.source == "inject"`.
@@ -110,6 +114,7 @@ class DetectPage extends StatelessWidget {
           ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -365,7 +370,15 @@ class _PrimaryButton extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(minHeight: AcouTheme.minTapTarget + 8),
           child: FilledButton.icon(
-            onPressed: () => running ? notifier.stop() : notifier.startRealtime(),
+            onPressed: () {
+              // ADR-39: starting and stopping a capture is the one action in this app whose effect
+              // the finger cannot see -- the microphone opens and the disc starts moving later.
+              // Apple's rule (`inter-haptic-feedback`) is to spend a haptic exactly there, and not
+              // on ordinary navigation. `mediumImpact` is the weight Apple uses for a control that
+              // changes what the device is doing.
+              unawaited(HapticFeedback.mediumImpact());
+              unawaited(running ? notifier.stop() : notifier.startRealtime());
+            },
             icon: Icon(running ? Icons.stop_circle_outlined : Icons.graphic_eq),
             label: Text(DetectPresenter.primaryActionLabel(state)),
           ),

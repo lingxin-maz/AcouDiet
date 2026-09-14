@@ -12,8 +12,10 @@
 // the one-off privacy note (FF-24) the first time the user lands on the detection tab.
 
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 
 import '../../presenters/ui_strings.dart';
 import '../../state/acou_scope.dart';
@@ -64,6 +66,15 @@ class _AppShellState extends State<AppShell> {
       _refreshTab(tab);
       return;
     }
+    // ADR-39: Apple's tab bars tick on selection. `selectionClick` is the lightest of the platform
+    // haptics and is the one Apple maps to picking a different item; it is deliberately NOT on the
+    // card taps, which are ordinary navigation rather than a state change the finger cannot see
+    // (the HIG skill's `inter-haptic-feedback`: haptics are for meaningful events, not every tap).
+    //
+    // It goes through `HapticFeedback`, i.e. `View.performHapticFeedback`, which needs **no
+    // VIBRATE permission** -- the release manifest and its permission set are unchanged, which the
+    // APK gate keeps proving.
+    unawaited(HapticFeedback.selectionClick());
     setState(() => _tab = tab);
     _refreshTab(tab);
     if (tab == ShellTab.detect && !_privacyShown) {
@@ -121,15 +132,28 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // ADR-39: the body now runs **under** the bar (`extendBody`) so the bar's blurred material has
+    // the page moving beneath it -- that is what makes it a material rather than a white box. The
+    // price is that the pages no longer get the bar's height anything for free, so it is injected
+    // here as `MediaQuery` bottom padding: every page already reads its insets from MediaQuery, and
+    // a page that respects the bottom inset now clears the bar wherever it is.
+    final viewPadding = MediaQuery.paddingOf(context);
+    final barInset = AcouNavBar.totalHeight;
     return Scaffold(
-      body: IndexedStack(
-        index: tabs.indexOf(_tab),
-        children: const [
-          HomePage(),
-          DetectPage(),
-          RecordsPage(),
-          ReportPage(),
-        ],
+      extendBody: true,
+      body: MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          padding: viewPadding.copyWith(bottom: viewPadding.bottom + barInset),
+        ),
+        child: IndexedStack(
+          index: tabs.indexOf(_tab),
+          children: const [
+            HomePage(),
+            DetectPage(),
+            RecordsPage(),
+            ReportPage(),
+          ],
+        ),
       ),
       bottomNavigationBar: AcouNavBar(
         currentIndex: tabs.indexOf(_tab),
@@ -177,36 +201,63 @@ class AcouNavBar extends StatelessWidget {
   /// rounded square around the active item, not a full-width panel.
   static const double tileWidth = 76;
 
+  /// The bar's own vertical padding, above and below the row.
+  static const double barPadding = AcouTheme.spaceSm;
+
+  /// Everything the bar occupies **above the device's own bottom inset**. The shell hands this to
+  /// the pages as extra `MediaQuery` bottom padding (ADR-39), so a page can clear the bar without
+  /// knowing that a bar exists.
+  static const double totalHeight = barPadding * 2 + barHeight;
+
   @override
   Widget build(BuildContext context) => Semantics(
         label: '主导航',
         container: true,
-        child: Container(
-          color: AcouTheme.surface,
-          padding: EdgeInsets.only(
-            top: AcouTheme.spaceSm,
-            bottom: AcouTheme.spaceSm + MediaQuery.paddingOf(context).bottom,
-          ),
-          // ⚠️ The explicit height is load-bearing, not decoration. `Scaffold` hands
-          // `bottomNavigationBar` the **whole screen** as available height, so a `Column` that
-          // keeps the default `MainAxisSize.max` (and the tile inside it) expands to fill that
-          // space: the selected mint tile becomes a full-height bar and the page body is squeezed
-          // to zero -- a blank screen. That is exactly how this bar first shipped (the emulator
-          // screenshot in `docs/reports/adr24_ui_rebuild.md` section 11 records it), and
-          // `test/ui/app_shell_layout_test.dart` now pins the height so it cannot come back.
-          child: SizedBox(
-            height: AcouNavBar.barHeight,
-            child: Row(
-              children: [
-                for (var i = 0; i < labels.length; i++)
-                  Expanded(
-                    child: _NavItem(
-                      index: i,
-                      current: currentIndex == i,
-                      onTap: onSelect,
-                    ),
+        // ADR-39: Apple's chrome is a **material**, not a colour -- translucent, and blurring what
+        // passes underneath it. `ClipRect` keeps the blur inside the bar's own bounds (without it
+        // `BackdropFilter` samples the whole backdrop and can bleed at the edges).
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: AcouTheme.materialBlurSigma,
+              sigmaY: AcouTheme.materialBlurSigma,
+            ),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: AcouTheme.chromeMaterialTint,
+                // Apple separates a bar from the content that has scrolled under it with a hairline
+                // rather than a shadow, which is why the app's bars carry no elevation.
+                border: Border(top: AcouTheme.chromeEdge),
+              ),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: barPadding,
+                  bottom: barPadding + MediaQuery.paddingOf(context).bottom,
+                ),
+                // ⚠️ The explicit height is load-bearing, not decoration. `Scaffold` hands
+                // `bottomNavigationBar` the **whole screen** as available height, so a `Column` that
+                // keeps the default `MainAxisSize.max` (and the tile inside it) expands to fill that
+                // space: the selected mint tile becomes a full-height bar and the page body is
+                // squeezed to zero -- a blank screen. That is exactly how this bar first shipped
+                // (the emulator screenshot in `docs/reports/adr24_ui_rebuild.md` section 11 records
+                // it), and `test/ui/app_shell_layout_test.dart` now pins the height so it cannot
+                // come back.
+                child: SizedBox(
+                  height: AcouNavBar.barHeight,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < labels.length; i++)
+                        Expanded(
+                          child: _NavItem(
+                            index: i,
+                            current: currentIndex == i,
+                            onTap: onSelect,
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                ),
+              ),
             ),
           ),
         ),

@@ -35,11 +35,21 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scope = AcouScope.of(context);
-    return Scaffold(
+    return AcouScrollEdge(
+      child: Scaffold(
       // ADR-24: the mockups run the mint gradient behind the whole page, app bar included.
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         titleSpacing: AcouTheme.spacePage,
+        // ⚠️ The `Builder` is load-bearing: `AcouScrollEdge.of` must be read from a context
+        // *inside* the `AcouScrollEdge` we just returned, and this `build`'s own context is above
+        // it. Reading it here without the `Builder` compiles, runs, and silently returns `false`
+        // forever -- a material that never appears. `test/ui/apple_style_test.dart` drags the page
+        // and asserts it does appear, which is what makes the difference visible.
+        flexibleSpace: Builder(
+          builder: (inner) =>
+              AcouChromeMaterial(visible: AcouScrollEdge.of(inner)),
+        ),
         title: const AcouBrandMark(fullName: true),
         actions: [
           _HeaderAction(
@@ -84,7 +94,7 @@ class HomePage extends StatelessWidget {
                 // height here rather than putting the gradient inside a second Scaffold.
                 padding: EdgeInsets.only(
                   top: kToolbarHeight + MediaQuery.paddingOf(context).top,
-                  bottom: AcouTheme.spaceXl,
+                  bottom: AcouTheme.spaceXl + AcouTheme.bottomInset(context),
                 ),
                 children: [
                   DemoBanner(visible: view.demoActive),
@@ -136,6 +146,7 @@ class HomePage extends StatelessWidget {
             );
           },
         ),
+      ),
       ),
     );
   }

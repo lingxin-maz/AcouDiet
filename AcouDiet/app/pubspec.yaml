@@ -16,7 +16,12 @@ publish_to: "none"
 # 1.2.1+4 (ADR-35): the packaged inference runtime changed from `org.tensorflow:tensorflow-lite`
 # to `com.google.ai.edge.litert` so the APK can be mapped on 16 KB-page devices. Same features,
 # different native library -- which is exactly the kind of difference a versionCode should record.
-version: 1.2.1+4
+#
+# 1.2.2+5 (ADR-38/ADR-39): the UI rounds. No model, permission or scoring change -- the same
+# acoustic model, the same `{RECORD_AUDIO}`-only manifest -- but a new versionCode, because an
+# APK whose interface was rebuilt must not be installable over the one it replaces without the
+# user being able to tell them apart (ADR-24's lesson: two releases, same size, different bytes).
+version: 1.2.2+5
 
 environment:
   sdk: ">=3.5.0 <4.0.0"

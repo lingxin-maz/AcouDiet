@@ -36,6 +36,9 @@ class RefreshableBody extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
+            // ADR-39: the shell runs the body under the tab bar and puts the bar's height into the
+            // bottom inset, so the centred panel keeps its trailing space clear of the bar.
+            padding: EdgeInsets.only(bottom: AcouTheme.bottomInset(context)),
             children: [
               ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),

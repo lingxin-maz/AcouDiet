@@ -29,7 +29,6 @@ import '../../lib/presentation/pages/report/report_page.dart';
 import '../../lib/presentation/presenters/ui_strings.dart';
 import '../../lib/presentation/state/acou_scope.dart';
 import '../../lib/presentation/state/app_services.dart';
-import '../../lib/presentation/state/notifiers.dart';
 import '../../lib/presentation/theme/acou_theme.dart';
 import '../../lib/presentation/widgets/acou_app_bar.dart';
 

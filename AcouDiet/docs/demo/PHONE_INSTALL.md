@@ -1,4 +1,4 @@
-# 装到手机上测试
+﻿# 装到手机上测试
 
 本文只讲**怎么把 App 装进手机并测什么**。所有命令都实测过（模拟器 API 34 / x86_64），
 真机未测（本机 `adb devices` 为空）。
@@ -7,24 +7,30 @@
 
 ## 0. 拿哪个文件
 
-> 🟢 **2026-09-15 最新（`ADR-38`）：手机自测请用这一份** ——
-> **`AcouDiet-1.2.1-arm64-release-no-llm.apk`**，**70,858,649 B**（67.6 MB），
-> sha256 **`97f794770adda06b13c0f6ae7faa4733714c27281ab0b40e22640c5494e91add`**。
-> 相对 `1.2.0` 的变化**只在界面**（`ADR-38`）：四个顶层页面改成示意图那套**居中标题顶栏**
-> （品牌字标在左、页面操作在右，被 push 的页面自动换成返回箭头）；记录卡的千卡移到**右侧列**；
-> 「我的」每条入口补上一行描述；雷达四个轴名改为走设计系统并跟随系统字号；
-> 检测页圆盘在**还没有任何音频样本**时显示一层静态站波母题（不再是一个空绿圆）。
-> 声学模型、权限、口径**一个字节都没改**（仍是 `acoudiet_fp32_v1.3.0.tflite`）。
+> 🟢 **2026-09-15 最新（`ADR-39`）：手机自测请用这一份** ——
+> **`AcouDiet-1.2.2-arm64-release-no-llm.apk`**，**70,858,649 B**（67.6 MB），
+> sha256 **`2e9fb8793ec306b3e607440afcf8926e63448769ac484e3029ddd24949ec442a`**。
+> 相对 `1.2.1` 的变化**只在界面**（`ADR-38` + `ADR-39`）：顶栏 / 记录卡右列 / 我的条目描述 / 雷达标注 /
+> 检测圆盘（`ADR-38`），以及**字号与行高改按 Apple Dynamic Type**、**底栏变成半透明模糊材质**
+> （页面从它下面穿过去）、**顶栏在内容滚到下面时变成毛玻璃**、**页面转场改成 Apple 的横滑 + 边缘右滑返回**、
+> **切 Tab 与开始/停止检测有触感反馈**（`ADR-39`）。
+> 声学模型、权限、口径**一个字节都没改**（仍是 `acoudiet_fp32_v1.3.0.tflite`，Manifest 仍只有 `RECORD_AUDIO`）。
 >
 > ```powershell
 > python AcouDiet\tool\ui_fingerprint_check.py "<这个包>"        # 期望 RESULT: CURRENT UI   → exit 0
 > python AcouDiet\tool\check_apk_contents.py "<这个包>" --expect-no-internet   # 期望 exit 0
 > ```
 >
-> ⚠️ **同一体积的两个包可以内容完全不同**：`1.2.1` 与上一版**字节数恰好都是 70,858,649**，
-> sha256 却从 `9bfeb447…` 变成了 `97f79477…`（`ADR-24` 之后这是第二次撞上这种情况）。
-> **判断"装的是哪个包"只能看 sha256，不能看大小。**
+> ⚠️ **`1.2.0` / `1.2.1` / `1.2.2` 的字节数相同而内容不同**：`1.2.1` 与 `1.2.2` **都是 70,858,649 B**，
+> sha256 却分别是 `97f79477…` / `2e9fb879…`。这是本项目**第三次**撞上"同大小、不同内容"
+> （`ADR-24` 记录过两次）。**判断"装的是哪个包"只能看 sha256，不能看大小。**
 
+> 🟢 **2026-09-15（`ADR-38`）：顶栏与卡片版式那一版** ——
+> **`AcouDiet-1.2.2-arm64-release-no-llm.apk`**，**70,858,649 B**（67.6 MB），
+> sha256 `97f794770adda06b13c0f6ae7faa4733714c27281ab0b40e22640c5494e91add`。
+> 四个顶层页面改成示意图那套**居中标题顶栏**；记录卡的千卡移到**右侧列**；「我的」每条入口补上一行描述；
+> 雷达四个轴名改走设计系统并跟随系统字号；检测页圆盘在**还没有任何音频样本**时显示一层静态站波母题。
+>
 > 🟢 **2026-09-14（`ADR-34`）：无端侧语言模型的那一版** ——
 > **`AcouDiet-1.2.0-arm64-release-no-llm.apk`**，**65,525,041 B**（62.5 MB），
 > sha256 `edda873a6ecdf48d9c90619b15e9e236a93df2d227de222cdba255ea9979b2f3`。
@@ -67,7 +73,11 @@
 **`dist/` 里各包的实测指纹**（复核命令见 §3）：
 
 ```
-★ 1.2.1 no-llm bytes  = 70,858,649      ← 当前该用的那一份（ADR-38：顶栏 / 记录卡 / 我的 / 雷达 / 检测圆盘）
+★ 1.2.2 no-llm bytes  = 70,858,649      ← 当前该用的那一份（ADR-38/39：UI + Apple 风格）
+               sha256 = 2e9fb8793ec306b3e607440afcf8926e63448769ac484e3029ddd24949ec442a
+               包内模型 = acoudiet_fp32_v1.3.0.tflite  4,053,556 B  sha256 31fba3ec…19f4
+
+  1.2.1 no-llm bytes  = 70,858,649      ← ADR-38 那版界面（历史留档；与 1.2.2 **同大小、不同内容**）
                sha256 = 97f794770adda06b13c0f6ae7faa4733714c27281ab0b40e22640c5494e91add
                包内模型 = acoudiet_fp32_v1.3.0.tflite  4,053,556 B  sha256 31fba3ec…19f4
 
@@ -87,7 +97,7 @@
 签名   = CN=AcouDiet TEST（release，测试密钥，见 §4）/ CN=Android Debug（profile）
          apksigner verify 退出码 0；zipalign -c -p 4 退出码 0（两者均实测）
 权限   = release：只有 RECORD_AUDIO + com.acoudiet.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION，
-         **无 INTERNET**（`1.2.1` 包实测：`ascii=False, utf16le=False`）
+         **无 INTERNET**（`1.2.2` 包实测：`ascii=False, utf16le=False`）
          profile：多一个 INTERNET（`aapt2 dump badging` 实测，见下方「一处闸门缺陷」）
 ABI    = release 四个 ABI 齐全（arm64-v8a / armeabi-v7a / x86 / x86_64）；
          早前"release 仅 arm64-v8a"的说法只对已不再维护的窄包成立
@@ -126,7 +136,7 @@ minSdk = 24（Android 7.0）· targetSdk = 34
 **三个包都含成品模型**，可直接用下面的命令核对（`ADR-22` 的教训：必须确认模型真的在包里）：
 
 ```powershell
-python _toolchain\check_apk_contents.py D:\Desktop\Food\AcouDiet\dist\AcouDiet-1.2.1-arm64-release-no-llm.apk --expect-no-internet
+python _toolchain\check_apk_contents.py D:\Desktop\Food\AcouDiet\dist\AcouDiet-1.2.2-arm64-release-no-llm.apk --expect-no-internet
 # 期望：acoudiet_fp32_v1.3.0.tflite 4,053,556 B，且 sha256 =
 #       31fba3ecba852cb51ac8166ab49cba1f4be3f4b23cafbfc5cace8780bfa019f4
 # 期望：包内 model_card.json 的 tfliteSha256 / tfliteBytes 与该 .tflite 逐项一致
@@ -196,7 +206,7 @@ release 包，**旧界面**）被留在 `_toolchain/tmp/` 里。它是 release �
 | # | 原因 | 怎么确认 | 怎么修 |
 |---|---|---|---|
 | 1 | **装的是旧签名的包，新包被 Android 拒了**：`app-debug.apk` 是 **Debug 密钥**，`dist` 里的 release 包是 **CN=AcouDiet TEST**，签名不同 → `INSTALL_FAILED_UPDATE_INCOMPATIBLE`，旧 App 原地不动 | 安装时是否闪过"未安装/应用未安装"；`adb install` 的退出码（**不是**输出里的 `Success` 字样，`ADR-22` 记录过这个判据缺陷） | `adb uninstall com.acoudiet.app` 再装 `dist` 的 release 包 |
-| 2 | **装的是另一个 APK 文件**（例如上面的 4 ABI 旧包、或几天前拷到手机里的旧文件） | 对着手机里那个文件跑 `python AcouDiet\tool\ui_fingerprint_check.py <文件>` | 用 §0 顶部那一份（`dist\AcouDiet-1.2.1-arm64-release-no-llm.apk`，sha256 `97f79477…91add`） |
+| 2 | **装的是另一个 APK 文件**（例如上面的 4 ABI 旧包、或几天前拷到手机里的旧文件） | 对着手机里那个文件跑 `python AcouDiet\tool\ui_fingerprint_check.py <文件>` | 用 §0 顶部那一份（`dist\AcouDiet-1.2.2-arm64-release-no-llm.apk`，sha256 `2e9fb879…c442a`） |
 
 前置条件：手机 **Android 7.0（API 24）或更高**、CPU 为 **arm64**（近十年的手机基本都是）。
 包名 `com.acoudiet.app`，版本 `1.1.0`。
@@ -205,7 +215,7 @@ release 包，**旧界面**）被留在 `_toolchain/tmp/` 里。它是 release �
 
 ## 1. 装法 A：只用手机（不用电脑）
 
-1. 把 §0 顶部那一份 `AcouDiet-1.2.1-arm64-release-no-llm.apk` 传到手机
+1. 把 §0 顶部那一份 `AcouDiet-1.2.2-arm64-release-no-llm.apk` 传到手机
    （微信文件传输 / 云盘 / 数据线拷进「下载」目录都行）。**67.6 MB，传输很快**；
 2. 手机上点这个文件安装。第一次会提示「不允许安装未知应用」→ 去
    **设置 → 应用 → 特殊应用权限 → 安装未知应用**，给「文件管理器」或你点的那个应用放行；
@@ -229,7 +239,7 @@ $adb = 'D:\Desktop\Food\_toolchain\android-sdk\platform-tools\adb.exe'
 # 0) 如果装过 debug 版（签名不同），先卸载；不卸的话下面那条 install 会被拒
 & $adb uninstall com.acoudiet.app
 
-& $adb install -r "D:\Desktop\Food\AcouDiet\dist\AcouDiet-1.2.1-arm64-release-no-llm.apk"
+& $adb install -r "D:\Desktop\Food\AcouDiet\dist\AcouDiet-1.2.2-arm64-release-no-llm.apk"
 # ⚠️ 看**退出码**，不要只看输出里有没有 Success 字样：输出被截断时两者都看不到（ADR-22）
 "install exit = $LASTEXITCODE"
 
@@ -256,7 +266,7 @@ $adb = 'D:\Desktop\Food\_toolchain\android-sdk\platform-tools\adb.exe'
 # 【当前实际用法·推荐】一条命令完成"构建 + 命名 + 包内取证 + sha256"：
 powershell -NoProfile -ExecutionPolicy Bypass `
     -File D:\Desktop\Food\AcouDiet\tool\build_release_v11.ps1 `
-    -Version 1.2.1 -OutName 'AcouDiet-1.2.1-arm64-release-no-llm.apk'
+    -Version 1.2.2 -OutName 'AcouDiet-1.2.2-arm64-release-no-llm.apk'
 
 # ⚠️ ADR-32 加的护栏（实测有效）：目标文件已存在时脚本**直接失败**，除非显式加 -Force。
 #   理由：换模型重打若沿用同名，旧包会被静默覆盖而**不可恢复**（本仓不是 git 仓库，

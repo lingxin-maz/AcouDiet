@@ -175,7 +175,12 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
-Future<void> _capture(WidgetTester tester, String name, Widget app) async {
+Future<void> _capture(
+  WidgetTester tester,
+  String name,
+  Widget app, {
+  Future<void> Function(WidgetTester)? after,
+}) async {
   // ⚠️ Drop the previous tree first. `pumpWidget` with a widget of the *same type* updates the
   // existing element instead of rebuilding it, so four `AppShell(initialTab: …)` captures in a row
   // all reused the first `_AppShellState` and wrote four identical PNGs -- a harness that silently
@@ -184,6 +189,7 @@ Future<void> _capture(WidgetTester tester, String name, Widget app) async {
   await tester.pump();
   await tester.pumpWidget(app);
   await _settle(tester);
+  if (after != null) await after(tester);
   await expectLater(
     find.byType(MaterialApp),
     matchesGoldenFile('visual_capture/$name.png'),
@@ -208,7 +214,11 @@ void main() {
     tester.platformDispatcher.systemFontFamily = _CaptureFont.family;
     addTearDown(() => tester.platformDispatcher.systemFontFamily = null);
 
-    Future<void> shot(String name, Widget Function(AcouNotifiers) build) async {
+    Future<void> shot(
+      String name,
+      Widget Function(AcouNotifiers) build, {
+      Future<void> Function(WidgetTester)? after,
+    }) async {
       // Fresh notifiers per screen: `prime()` is a start-up side effect, and reusing one set would
       // let the previous screen's loaded value stand in for this one's.
       final services = _services();
@@ -227,6 +237,7 @@ void main() {
           notifiers: notifiers,
           child: _host(build(notifiers)),
         ),
+        after: after,
       );
       await notifiers.dispose();
     }
@@ -249,5 +260,19 @@ void main() {
     await shot('records', (_) => const RecordsPage());
     await shot('report', (_) => const ReportPage());
     await shot('detect', (_) => const DetectPage());
+
+    // ADR-39: the tab bar is a translucent *material*, and a material can only be judged with
+    // something behind it. At the top of a page the bar sits over a flat gradient and looks like
+    // any other white bar; scrolled, cards are passing underneath it. This is the capture that can
+    // actually fail -- if the bar goes opaque again, or `extendBody` is dropped, this is the one
+    // that stops showing cards through it.
+    await shot(
+      'shell_records_scrolled',
+      (_) => const AppShell(initialTab: ShellTab.records),
+      after: (tester) async {
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+      },
+    );
   });
 }

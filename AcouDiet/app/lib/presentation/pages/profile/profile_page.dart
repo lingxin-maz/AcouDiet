@@ -1,4 +1,4 @@
-// app/lib/presentation/pages/profile/profile_page.dart
+﻿// app/lib/presentation/pages/profile/profile_page.dart
 //
 // U-05 · 我的 / 设置. The entry is an app-bar action, never a fifth tab (FF-23).
 //
@@ -33,7 +33,8 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = AcouScope.of(context);
     final notifier = scope.notifiers.profile;
-    return Scaffold(
+    return AcouScrollEdge(
+      child: Scaffold(
       // ADR-24: the mockups' profile screen is a mint gradient page with a white header card.
       extendBodyBehindAppBar: true,
       appBar: const AcouPageHeader(title: UiStrings.profileTitle),
@@ -59,7 +60,7 @@ class ProfilePage extends StatelessWidget {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.only(
                   top: kToolbarHeight + MediaQuery.paddingOf(context).top,
-                  bottom: AcouTheme.spaceXl,
+                  bottom: AcouTheme.spaceXl + AcouTheme.bottomInset(context),
                 ),
                 children: [
                   DemoBanner(visible: view.demoActive),
@@ -123,6 +124,7 @@ class ProfilePage extends StatelessWidget {
             );
           },
         ),
+      ),
       ),
     );
   }

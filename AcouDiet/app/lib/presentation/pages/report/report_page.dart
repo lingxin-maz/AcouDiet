@@ -77,7 +77,8 @@ class _ReportPageState extends State<ReportPage> {
   Widget build(BuildContext context) {
     final scope = AcouScope.of(context);
     final notifier = scope.notifiers.report;
-    return Scaffold(
+    return AcouScrollEdge(
+      child: Scaffold(
       // ADR-24: the report page joins the rest of the app on the mint gradient. It keeps the opaque
       // app bar look of the other pages by painting the gradient *behind* the bar; `_ScopeSwitcher`
       // reserves the toolbar inset so nothing hides under it.
@@ -141,6 +142,7 @@ class _ReportPageState extends State<ReportPage> {
           );
           },
         ),
+      ),
       ),
     );
   }
@@ -230,7 +232,7 @@ class _DailyReportBody extends StatelessWidget {
       onRefresh: notifier.reload,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: AcouTheme.spaceXl),
+        padding: EdgeInsets.only(bottom: AcouTheme.spaceXl + AcouTheme.bottomInset(context)),
         children: [
           DemoBanner(visible: view.demoActive, note: '本次报告使用预置演示数据集'),
           Padding(
@@ -351,9 +353,23 @@ class _DailySummaryCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: Text(row.$1, style: AcouTheme.bodyMuted)),
-                    Text(row.$2, style: AcouTheme.metric),
+                    // ⚠️ ADR-39: this used to be `Expanded(label) + Text(value)`, which leaves the
+                    // value unbounded. With a long value -- 「食物类别」 is a joined list of every
+                    // class in the day -- the row simply overflowed, and at a 360 dp phone width it
+                    // overflowed by **222 px**. It was already broken before the type scale grew;
+                    // larger text only made the same bug louder. The value now takes the remaining
+                    // space and wraps, and the label keeps its natural width.
+                    Text(row.$1, style: AcouTheme.bodyMuted),
+                    const SizedBox(width: AcouTheme.spaceSm),
+                    Expanded(
+                      child: Text(
+                        row.$2,
+                        style: AcouTheme.metric,
+                        textAlign: TextAlign.end,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -435,7 +451,7 @@ class _WeeklyReportBody extends StatelessWidget {
         onRefresh: notifier.reload,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: AcouTheme.spaceXl),
+          padding: EdgeInsets.only(bottom: AcouTheme.spaceXl + AcouTheme.bottomInset(context)),
           children: [
             DemoBanner(visible: view.demoActive, note: '本次报告使用预置演示数据集'),
             Padding(

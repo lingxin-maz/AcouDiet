@@ -1,4 +1,4 @@
-// app/lib/presentation/pages/records/records_page.dart
+﻿// app/lib/presentation/pages/records/records_page.dart
 //
 // U-03 · 饮食记录页. A read-only timeline, grouped by local calendar day, with the stats bar on
 // top, the weekly sentence below it, and the mockups' meal chip row above both (ADR-24).
@@ -70,7 +70,8 @@ class _RecordsPageState extends State<RecordsPage> {
     final scope = AcouScope.of(context);
     final notifier = scope.notifiers.records;
     final topInset = kToolbarHeight + MediaQuery.paddingOf(context).top;
-    return Scaffold(
+    return AcouScrollEdge(
+      child: Scaffold(
       // ADR-24: the mockups' records screen is a mint gradient page with floating white cards.
       extendBodyBehindAppBar: true,
       appBar: AcouPageHeader(
@@ -108,7 +109,7 @@ class _RecordsPageState extends State<RecordsPage> {
               onRefresh: notifier.reload,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.only(top: topInset, bottom: AcouTheme.spaceXl),
+                padding: EdgeInsets.only(top: topInset, bottom: AcouTheme.spaceXl + AcouTheme.bottomInset(context)),
                 children: [
                   DemoBanner(
                     visible: view.groups
@@ -157,6 +158,7 @@ class _RecordsPageState extends State<RecordsPage> {
             );
           },
         ),
+      ),
       ),
     );
   }

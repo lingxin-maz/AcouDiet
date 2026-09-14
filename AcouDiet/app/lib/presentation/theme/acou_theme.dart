@@ -44,17 +44,51 @@ abstract final class AcouTheme {
   static const Color seedSoft = Color(0x2E2E7D5B);
 
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceMuted = Color(0xFFF4F6F4);
-  static const Color outline = Color(0xFFD6DBD7);
+
+  /// ADR-39: Apple's `systemGray6` (light). Used for the "quiet" fill of a chip or an empty card --
+  /// a role in which the colour carries no text, which is why it is safe to take Apple's value
+  /// verbatim even though it is too light to be a text colour.
+  static const Color surfaceMuted = Color(0xFFF2F2F7);
+
+  /// ADR-39: Apple's `opaqueSeparator` (light). The hairline between two surfaces.
+  static const Color outline = Color(0xFFC6C6C8);
+
+  /// ADR-39: Apple's hairline width -- a third of a point, not a whole one. Apple separates two
+  /// surfaces with the thinnest line the display can resolve; a 1 dp rule reads as a box rather
+  /// than as a division. Defined here so no widget spells the fraction itself.
+  static const double hairline = 1 / 3;
 
   /// Body ink. 12.6:1 on white.
   static const Color ink = Color(0xFF1B1F1C);
 
   /// Secondary ink. 7.0:1 on white.
+  ///
+  /// ⚠️ ADR-39: **this is deliberately darker than Apple's `secondaryLabel`.** Apple's value is
+  /// black at 60 % -- composited over white that is `#8A8A8E`, measured **3.44:1**, which fails the
+  /// 4.5:1 floor U-06 section 8 sets for body text. Apple is not targeting WCAG AA for its
+  /// secondary text; this project is. The Apple HIG skill's own quality gate says to flag such a
+  /// conflict and then *prioritise accessibility*, so the value stays ours and the deviation is
+  /// recorded rather than hidden. Measured: `ours inkMuted 7.713:1`, `apple secondaryLabel 3.439:1`.
   static const Color inkMuted = Color(0xFF4C5550);
 
   /// Grade inks: 4.9:1 / 5.1:1 / 5.4:1 on white respectively, so they are legal as text colour
   /// and not only as a chip background.
+  ///
+  /// ⚠️ ADR-39: **not** replaced by Apple's `systemGreen` / `systemOrange` / `systemRed`, and not
+  /// by Apple's *increased-contrast* variants either. Measured on white:
+  ///
+  /// | candidate | ratio | vs ours |
+  /// |---|---|---|
+  /// | Apple `systemGreen` #34C759 | 2.220:1 | fails outright |
+  /// | Apple `systemRed` #FF383C | 3.5:1 | fails outright |
+  /// | Apple accessible green #008932 | 4.541:1 | passes by 0.04 |
+  /// | Apple accessible orange #C55300 | 4.554:1 | passes by 0.05 |
+  /// | Apple accessible red #E9152D | 4.555:1 | passes by 0.06 |
+  /// | **ours** | **6.46 / 5.93 / 7.43:1** | — |
+  ///
+  /// Adopting Apple's accessible shades would clear the project's own floor by five hundredths of a
+  /// ratio point, i.e. it would *spend* two to three points of real contrast to buy a hue. The
+  /// skill's rule ("prioritise accessibility") decides it: the inks stay.
   static const Color gradeGood = Color(0xFF1E6B47);
   static const Color gradeFair = Color(0xFF8A5A00);
   static const Color gradePoor = Color(0xFF9E2B25);
@@ -95,6 +129,30 @@ abstract final class AcouTheme {
   /// the background loses no information, and the day, its date and its count are all text.
   static const Color starGold = Color(0xFFF6B93B);
 
+  // ------------------------------------------------------------- materials (ADR-39)
+
+  /// The blur radius of a translucent bar, in the units `ImageFilter.blur` takes.
+  ///
+  /// Apple's chrome is a **material**, not a colour: the tab bar and the toolbar are translucent
+  /// and the content behind them is blurred, which is what keeps a scrolling list legible under a
+  /// bar that never moves. 20 is the usual `UIBlurEffect.Style.systemChromeMaterial` order of
+  /// magnitude at phone sizes; exactness is not the point here (the two platforms cannot match
+  /// blur kernels), the *behaviour* is -- content visibly continues underneath the bar.
+  static const double materialBlurSigma = 20;
+
+  /// What a bar tints its own material with. Apple's chrome material is a light neutral at high
+  /// opacity rather than a solid fill, so the blurred content shows through it in colour.
+  ///
+  /// 85 %, not 100 %: at 100 % the bar is a white box again and nothing underneath is visible at
+  /// all. Measured against the darkest thing that can sit under it (the page's mint top,
+  /// `#57D2B4`), the composited bar is `#E6F8F4` and `inkMuted` on it is **6.5:1** -- the bar is
+  /// translucent, and its labels are still body text.
+  static const Color chromeMaterialTint = Color(0xD9FFFFFF);
+
+  /// The hairline Apple draws along the edge of a bar so it stays separated from content that has
+  /// scrolled under it. Uses [outline], which is Apple's `opaqueSeparator`.
+  static const BorderSide chromeEdge = BorderSide(color: outline, width: hairline);
+
   static const Map<GradeTone, Color> gradeToneColor = {
     GradeTone.good: gradeGood,
     GradeTone.fair: gradeFair,
@@ -119,6 +177,15 @@ abstract final class AcouTheme {
   static const double spaceLg = 24;
   static const double spaceXl = 32;
   static const double spacePage = 16;
+
+  /// The bottom inset a scrollable page must leave clear, above its own trailing space.
+  ///
+  /// ADR-39: the shell runs the page **under** the tab bar and adds the bar's height to
+  /// `MediaQuery`'s bottom padding, so this is the whole answer for every page -- the bar's height
+  /// plus the device's own home-indicator inset where there is one. A page inside the shell and the
+  /// same page pushed on its own (no bar) both get the right number, and neither has to know that a
+  /// bar exists.
+  static double bottomInset(BuildContext context) => MediaQuery.paddingOf(context).bottom;
 
   static const double radiusSm = 8;
   static const double radiusMd = 12;
@@ -157,7 +224,24 @@ abstract final class AcouTheme {
         elevation: 0,
         centerTitle: false,
       ),
-      dividerTheme: const DividerThemeData(color: outline, thickness: 1, space: 1),
+      dividerTheme: const DividerThemeData(color: outline, thickness: hairline, space: hairline),
+      // ADR-39: Apple's navigation transition, on every platform this app ships to.
+      //
+      // Apple's push is a **horizontal slide with the outgoing page parallaxing underneath, plus an
+      // edge-swipe back gesture**. Material's default on Android is a vertical zoom/fade, and the
+      // difference is the single most recognisable thing about navigating an Apple app. This does
+      // not change what any route *is* -- the same `MaterialPageRoute`, the same `Navigator` -- so
+      // nothing about the app's structure depends on it.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       listTileTheme: const ListTileThemeData(
         minVerticalPadding: spaceSm,
         iconColor: inkMuted,
@@ -173,7 +257,9 @@ abstract final class AcouTheme {
           disabledForegroundColor: surfaceMuted,
           shape: const StadiumBorder(),
           padding: const EdgeInsets.symmetric(horizontal: spaceLg, vertical: 14),
-          textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+          // ADR-39: the button label is Body/Headline (17/22) at semibold -- the same style Apple
+          // uses for a filled button, so it now shares the token rather than restating the numbers.
+          textStyle: onPrimaryAction,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -192,11 +278,18 @@ abstract final class AcouTheme {
         selectedColor: mintSoft,
         side: const BorderSide(color: outline),
         shape: const StadiumBorder(),
-        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: ink),
+        // Footnote (13/18) at semibold: the chip label ramp on Apple's table.
+        labelStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: ink,
+          height: 18 / 13,
+        ),
         secondaryLabelStyle: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: gradeGood,
+          height: 18 / 13,
         ),
         showCheckmark: false,
       ),
@@ -278,8 +371,23 @@ abstract final class AcouTheme {
       );
 
   // ------------------------------------------------------------------ text styles
+  //
+  // ADR-39: the scale below is **Apple's Dynamic Type table**, iOS "Large" (the default size), taken
+  // from the HIG typography specification rather than invented:
+  //
+  //   Large Title 34/41 · Title 1 28/34 · Title 2 22/28 · Title 3 20/25 · Headline 17/22 · Body 17/22
+  //   Callout 16/21 · Subhead 15/20 · Footnote 13/18 · Caption 1 12/16 · Caption 2 11/13
+  //
+  // Two things changed, and the second is the one that is felt:
+  //
+  //  * the **sizes** moved onto that ladder -- body 15 -> 17, secondary 14 -> 15, headings 19 -> 20;
+  //  * every style now carries Apple's **leading** as an explicit `height` (22/17, 20/15, 16/12,
+  //    25/20, 28/22). Before this the file had three unrelated heights (1.35 / 1.3 / 1.25) that
+  //    happened to look acceptable; a leading is part of a text style, not a decoration.
+  //
+  // A style that has no Apple counterpart keeps its own value and says so.
 
-  /// The big score number.
+  /// The big score number. Deliberately above Large Title: it is a display numeral, not a heading.
   static const TextStyle scoreLarge = TextStyle(
     fontSize: 44,
     fontWeight: FontWeight.w800,
@@ -287,45 +395,57 @@ abstract final class AcouTheme {
     height: 1.05,
   );
 
+  /// Title 3 (20/25), at semibold rather than Apple's regular -- this is a section heading, and
+  /// Apple's own emphasis story for a heading at this size is semibold (Headline).
   static const TextStyle sectionTitle = TextStyle(
-    fontSize: 19,
-    fontWeight: FontWeight.w700,
-    color: ink,
-  );
-
-  /// The greeting line of the home / profile headers (`Hi，今天也要好好吃饭呀！`).
-  static const TextStyle headline = TextStyle(
-    fontSize: 22,
-    fontWeight: FontWeight.w700,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
     color: ink,
     height: 1.25,
   );
 
-  static const TextStyle body = TextStyle(fontSize: 15, color: ink, height: 1.35);
-  static const TextStyle bodyMuted = TextStyle(fontSize: 14, color: inkMuted, height: 1.35);
-  static const TextStyle caption = TextStyle(fontSize: 12, color: inkMuted, height: 1.3);
+  /// Title 2 (22/28). The greeting line of the home / profile headers (`Hi，今天也要好好吃饭呀！`).
+  static const TextStyle headline = TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    color: ink,
+    height: 28 / 22,
+  );
 
-  /// ADR-38: the four axis captions of the radar.
+  /// Body (17/22) -- Apple's reading size, and the one the whole app now breathes at.
+  static const TextStyle body = TextStyle(fontSize: 17, color: ink, height: 22 / 17);
+
+  /// Subhead (15/20): the second level of a sentence, still body-like.
+  static const TextStyle bodyMuted = TextStyle(fontSize: 15, color: inkMuted, height: 20 / 15);
+
+  /// Caption 1 (12/16): the smallest size that stays readable in a dense row.
+  static const TextStyle caption = TextStyle(fontSize: 12, color: inkMuted, height: 16 / 12);
+
+  /// Headline (17/22) at semibold, without Apple's `headline` colour role -- a value, not a title.
+  static const TextStyle metric = TextStyle(
+    fontSize: 17,
+    color: ink,
+    fontWeight: FontWeight.w600,
+    height: 22 / 17,
+  );
+
+  /// The four axis captions of the radar. Caption 2 (11/13).
   ///
   /// It is a token for the same reason every other style is: the radar's labels are painted by a
-  /// `CustomPainter`, which has no `DefaultTextStyle` to inherit from, so before this the only text
-  /// in the app that could not be restyled or scaled was the text drawn inside a chart.
+  /// `CustomPainter`, which has no `DefaultTextStyle` to inherit from, so before ADR-38 the only
+  /// text in the app that could not be restyled or scaled was the text drawn inside a chart.
   static const TextStyle chartAxisLabel = TextStyle(
     fontSize: 11,
     color: inkMuted,
-    height: 1.2,
+    height: 13 / 11,
   );
 
-  static const TextStyle metric = TextStyle(
-    fontSize: 15,
-    color: ink,
-    fontWeight: FontWeight.w700,
-  );
-
-  /// The white-on-mint style of a glyph drawn on the primary action.
+  /// The white-on-mint style of a glyph drawn on the primary action. Headline (17/22), which is
+  /// what Apple's own filled button label uses.
   static const TextStyle onPrimaryAction = TextStyle(
     fontSize: 17,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: onMint,
+    height: 22 / 17,
   );
 }

@@ -1,0 +1,103 @@
+# Continuous integration for AcouDiet.
+#
+# WHY THIS EXISTS (ADR-36)
+# ------------------------
+# There was no CI at all, and the consequences are recorded in the ADR log rather than guessed at:
+#
+#   * `tool/verify_all.ps1` -- the one-command regression entry point -- was found to be
+#     **unparseable** under the machine's AN SI code page, so not one of its steps had ever run
+#     automatically (ADR-33);
+#   * `flutter test` had never been run either, and it was RED: four widget tests still asserted a
+#     string that ADR-30 had deliberately deleted (ADR-35);
+#   * a `.so` that cannot be mapped on a 16 KB-page device shipped unnoticed, because the only way
+#     to see it was to install the APK (ADR-35).
+#
+# Every one of those is the same shape: a check that exists but never executes. This workflow is
+# the mechanical answer to that.
+#
+# HONEST LIMITS (read before trusting a green tick)
+# -------------------------------------------------
+#   * `tool/verify_all.ps1` is NOT run here. It drives this machine's Flutter/Dart/Python out of a
+#     local `_toolchain/` directory that is deliberately outside the repo, and it runs Kotlin, a
+#     JVM suite and an Android SDK check. It now honours `ACOUDIET_TOOLCHAIN` / `ACOUDIET_PYTHON` /
+#     `ACOUDIET_FLUTTER`, so a self-hosted runner *could* run it -- but this hosted runner has
+#     no way to build the APK, so **the page-alignment gate and the APK-content gate do not run
+#     in CI**. They remain local, post-build steps. That is a real gap, stated rather than hidden.
+#   * Nothing here touches the model itself; `ai/artifacts/metrics.json` is still absent, so the
+#     accuracy gate has nothing to check (see ADR-36).
+
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  flutter-tests:
+    name: flutter test (widget + binding suites)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: AcouDiet/app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          # Pinned to the version this project was built and tested with, so a green run here
+          # means the same thing as a green run locally.
+          flutter-version: '3.24.5'
+          channel: stable
+          cache: true
+
+      - name: Show toolchain versions
+        run: flutter --version
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      # The generated constants live in the SSOT (`shared/feature_config.json`) and are committed.
+      # `gen_feature_config.dart` has no `--check` flag -- it always regenerates -- so drift is
+      # detected the honest way: regenerate, then require the tracked files to be unchanged.
+      - name: SSOT constants are in sync (regenerate, then require no diff)
+        working-directory: AcouDiet
+        run: |
+          dart tool/gen_feature_config.dart
+          git diff --exit-code -- app/lib/core/feature_config.g.dart app/android/app/src/main/kotlin/com/acoudiet/app/config/FeatureConfig.kt
+
+      - name: flutter test
+        run: flutter test
+
+  portable-checks:
+    name: portable python checkers
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install checker dependencies
+        run: python -m pip install --quiet jsonschema
+
+      # These read files, not the toolchain, so they are genuinely portable. The list is
+      # deliberately explicit: a glob would silently stop covering a checker that gets renamed.
+      - name: SSOT / split / naming guards
+        working-directory: AcouDiet
+        run: |
+          python tool/check_split_leakage.py --strict
+          python tool/check_bridge_symmetry.py --strict
+          python tool/check_kotlin_usage.py --strict
+          python tool/check_l4_usage.py --strict
+          python tool/check_async_state_writes.py
+          python tool/check_android_xml.py --strict
+          python tool/check_consent_registry.py --strict
+
+      - name: Checker self-tests (negative controls)
+        working-directory: AcouDiet
+        run: |
+          python tool/selftest_check_apk_contents.py
+          python tool/selftest_check_emulator_model_log.py

@@ -559,6 +559,42 @@
 
 ---
 
+### ADR-35 ✅ `flutter test` 其实一直是**红的**（4 条），并修掉 16 KB 页对齐缺口
+
+| 项 | 内容 |
+|---|---|
+| 来源 | 用户：「观察当前项目，还有什么能够扩展和改进的地方」→「**全部修复**」。本条是"实测巡检"的两项产物，**都不是新功能，是既有缺陷**。 |
+| 缺陷 1：`flutter test` 从未跑过，且**4 条一直失败** | 误以为它在本机跑不起来（工具链曾是障碍），于是 `tool/verify_all.ps1` 第 16 步用的是**离线 shim**（`run_offline_tests.py`，只跑 12 个文件）。本轮实测 `flutter test` **能跑**，结果 `133 passed, 4 failed`：`test/ui/report_scope_test.dart` 里 **3 处断言「界面上必须有 `近 7 天评分（截至该日）`」**，而那个标题是 **`ADR-30` 刻意删掉的**（`report_page.dart:304` 有注释）。**这是同一类事故的第三次**（`ADR-33` 的 `ui_fingerprint_check.py`、`ADR-34` 的 `AI 周综述` 针、本条）—— 改动 UI 时没同步它的判据。**因为没有任何门禁跑过这套测试，它红了至少两轮没人知道。** |
+| 缺陷 1 修法 | 不再断言那个已删的字符串，改为断言**卡片本身由选中日期命名**：新增 `_openDayScoreCard()` = `find.widgetWithText(ScoreCard, 当日 dateLabel)`、`_weeklyScoreCard()` = `find.widgetWithText(ScoreCard, reportTitle)`。**为什么要按标题而不是按类型**：报告页两个 scope **各有一个** `ScoreCard`（每日是 `_DailyScoreCard`、本周是 `ReportScoreHeader`），所以 `find.byType(ScoreCard)` 区分不了两者 —— 我第一版就是这么写的，当场被测试证伪。结果：**`flutter test` 137 全过**（第一次全绿）。 |
+| 缺陷 1 的防线 | `tool/verify_all.ps1` 新增一步跑**真** `flutter test`（不是 shim），工具链缺失时**判失败而不是跳过**。同时把 `$Tool`/Python/Flutter 三处路径改为可被 `ACOUDIET_TOOLCHAIN`/`ACOUDIET_PYTHON`/`ACOUDIET_FLUTTER` 覆盖，这样 CI 或别的机器也能跑。 |
+| 缺陷 2：APK 在 **16 KB 页**设备上会让模型加载失败 | 实测每个 `.so` 的 ELF `PT_LOAD` 对齐：`libapp.so`/`libflutter.so` = **65536**，但 **`libtensorflowlite_jni.so` 四个 ABI 全是 4096**。Android 15+ 部分设备用 16 KB 页，4 KB 对齐的段**无法映射** → `dlopen` 失败 → 模型加载不了 → **核心功能在新款手机上直接坏掉**。根因：`org.tensorflow:tensorflow-lite:2.16.1` 是预编译的旧对齐；而当初自编的那个 Qwen shim `.so` 反而**显式加过 `-Wl,-z,max-page-size=16384`**（已随 `ADR-34` 删除）——**唯一注意过这件事的库删掉了，剩下的这个没人看**。 |
+| 缺陷 2 修法（**drop-in，零代码改动**） | 换成 **`com.google.ai.edge.litert:litert:1.4.2`**。选它的依据是实测而非猜测：① 它仍然发布 **同名** 的 `jni/<abi>/libtensorflowlite_jni.so`（Dart 侧正是 `dlopen` 这个名字）；② AAR manifest 仍是 `package="org.tensorflow.lite"`；③ 导出 **225** 个 `TfLite*` 符号（Dart 只用 21 个，含 `TfLiteTensorType`/`TfLiteVersion`），是超集；④ 四个 ABI 的 **`p_align` 全部 = 16384**；⑤ `DT_NEEDED` 仍只有 `libc/libdl/liblog/libm`；⑥ minSdk 21（本仓 24）。**本 App 一行 Java API 都没用**（只用 C API + FFI），所以换 AAR 不影响任何 Dart/Kotlin 代码。重打后：`libtensorflowlite_jni.so` 四个 ABI 的 `p_align` 全部 16384，`lib/` 下每个未压缩 `.so` 的 zip 起始偏移也都在 16 KB 边界。 |
+| 缺陷 2 的防线 | 新增 **`tool/check_page_alignment.py`**：直接读 APK 内每个 `.so` 的 ELF 头（`PT_LOAD` 的 `p_align`）**并**核对未压缩 `.so` 的 zip 起始偏移，两条独立判据都要过；已接进 `tool/verify_all.ps1`，也接到 `tool/build_release_v11.ps1` 的**构建后**步骤。**负控实测**：对修复前那个包（1.2.0）→ `NOT 16 KB COMPATIBLE` / exit 1；对修复后（1.2.1）→ `16 KB COMPATIBLE` / exit 0。 |
+| ⚠️ **一条必须记下的自我更正** | 我最初把证据写成「`zipalign -c -p 4` 通过、`-p 16` 失败，所以不是 16 KB 对齐」。**这是错的**：build-tools **34** 的 `zipalign` 里 `-p` 是**无参开关**，`16` 是**通用对齐字节数**，于是它检查的是"每个条目 16 **字节**对齐"，对普通条目（META-INF、dexopt、`.tflite` 资产）报 `BAD` 是**完全正常的**；16 KB 的页大小开关 `-P <pageSizeKb>` 要到 **build-tools 35** 才有。**结论没变**（ELF `p_align=4096` 本身就是决定性证据），但这句推理是错的，已从 `build.gradle` 与检查器的文档里改掉，并把这个坑写进检查器 docstring，免得后人再拿 `-p 16` 当 16 KB 判据、把正确的包判成坏的。 |
+| 诚实边界 | ① 16 KB 兼容性是**静态判据**（ELF 头 + zip 偏移），**没有真机/16 KB 模拟器实测** —— 本机 `adb devices` 为空，也没有 AVD。② `flutter test` 现在全绿，但它是**在一台机器上**跑出来的；CI 只跑其中的可移植部分（见 `ADR-36`）。③ 换 LiteRT 后**没有在设备上跑过**，`TfLiteVersion` 自检项会显示新的运行时版本，需真机确认一次。 |
+
+---
+
+### ADR-36 ✅ 把项目纳入版本控制（首提交），并补齐几处"能跑的检查"
+
+| 项 | 内容 |
+|---|---|
+| 来源 | 同上（「全部修复」）。 |
+| 缺陷 3：**整个项目没有任何版本控制** | 实测 `D:\Desktop\Food\.git` 与 `AcouDiet\.git` **都不存在**。这不是洁癖问题：`ADR` 日志里至少两处记录了由此造成的**不可逆损失**（旧包被 `Copy-Item` 覆盖后取不回旧字节；`ADR-34` 删 Qwen 前必须先手工归档才敢动手）。**"删错了能不能救"这件事一直是"不能"。** |
+| 仓库根设在**工作区根**，不是 `AcouDiet/` | 因为项目的"宪法"分散在三个兄弟目录：`shared/feature_config.json`（**SSOT**）、`docs/`（**冻结 SPEC 树 + ADR 日志**）、`AcouDiet/`（代码）。**根设在 `AcouDiet/` 就等于不把 ADR 日志和 SSOT 纳入版本控制** —— 而这两样正是本项目反复强调"唯一真源"的东西。 |
+| 首提交规模 | `f5d4849`，**448 个文件 / `.git` 54 MB**。忽略：`app/build`（1.6 GB）、`.dart_tool`、两处 `_toolchain`（3.1 GB）、`dist/*.apk`（1.4 GB）、`*.gguf`、`建议模型/model.safetensors`（**511 MB**）。**`*.tflite` 刻意不忽略**（4 MB，是交付物本身；提交它才能让重建可复现）。 |
+| 诚实边界（版本控制**没有**解决的那半） | `dist/*.apk` 被忽略，所以**重建一个 APK 仍会覆盖它的前身**。缓解办法是 `docs/demo/PHONE_INSTALL.md` 里的**哈希台账**（每个曾发布过的包的 sha256 与体积都记着），但"旧 APK 的字节"确实仍不可回取。**要真正解决需要一次 `git lfs` 或外部制品库，本轮没做。** |
+| 缺陷 4：检查器散落在仓库**之外** | `AcouDiet/tool/` 在仓内，但 `_toolchain/` 下还有 24 个脚本（含 `check_apk_contents.py`、`selftest_check_apk_contents.py`）。**闸门和被它检查的代码不在一起，也不一起移交/备份。** 已把 4 个可搬运的（`check_apk_contents.py`、`selftest_check_apk_contents.py`、`check_emulator_model_log.py`、`selftest_check_emulator_model_log.py`）移进 `AcouDiet/tool/`，并把它们的**硬编码绝对路径改成按自身位置推导**（`selftest` 还改用 `sys.executable`，不再依赖 `_toolchain` 的 Python）。`verify_all.ps1` 已改指仓内副本。**留在 `_toolchain/` 的是那些真的需要本机环境的（下载器、probe、一次性迁移脚本），没有强搬。** |
+| 缺陷 5：**没有任何 CI** | 仓库里没有 `.github/workflows`（grep 到的全是 vendored llama.cpp 自带的）。而 `ADR-33`/`ADR-35` 记的三处事故**全都是同一个形状：检查存在但从不执行**。新增 `.github/workflows/verify.yml`：Windows runner + Flutter 3.24.5，跑 `flutter test`、SSOT 漂移（**重新生成再 `git diff --exit-code`**，因为 `gen_feature_config.dart` 没有 `--check` 开关）、以及 7 个**可移植**的 Python 检查器与 2 个负控自测。 |
+| CI 的诚实边界 | **`tool/verify_all.ps1` 不在 CI 里跑**：它驱动本机 `_toolchain`、要 Kotlin/JVM/Android SDK，托管 runner 上也**无法构建 APK**，因此**页对齐闸门与 APK 内容闸门在 CI 里没有覆盖**，仍是本地构建后步骤。这一点写在 workflow 文件顶部，而不是留给读者猜。 |
+| 缺陷 6：Qwen 时代的死重 | 实测 `AcouDiet/_toolchain/llm/` 有 **34,074 个文件 / 2,398 MB**（`llama.cpp-b10937` 源码树 165 MB + 三个 `.gguf` 共 1,267 MB）。它不进包、不影响产物，但已无用途。**已删除**（删除前的完整归档在 `_toolchain/qwen_rollback_archive/`，保留）。`AcouDiet/_toolchain` 从 5,508 MB 降到 3,110 MB。 |
+| 缺陷 7：历史文档描述已删除的功能 | `docs/release/llm_on_device_conversion.md`（428 行）现在整篇描述一个**已不在产品里**的层。**没有删**（删历史比留着更糟），而是加了醒目的 `⛔ 已被 ADR-34 取代` 抬头，写清"文中每个路径与命令今天都对不上"，并指向 `ADR-34` 的「诚实边界」。 |
+| 新增：无障碍检查（**会失败的检查，不是文档**） | 新增 `app/test/ui/accessibility_test.dart`（6 条）：逐页扫描 `IconButton` 是否**有 tooltip 或 semanticLabel**（图标按钮没有可访问名 = TalkBack 只念"按钮"）、`Semantics` 是否有**非空 label**、雷达图是否发布文本等价物。**带正控**：每条断言前先要求"本次确实扫到了 >0 个控件"，否则测试自曝"扫描是空的"而不是默默通过 —— 这正是本仓反复栽的"不可能失败的闸门"。实测 4 个页面的控件全部可命名，无需改产品代码。**不做超范围声明**：对比度、焦点顺序、TalkBack 实机走查都**不在**本文件覆盖内。 |
+| 未完成：`ai/artifacts/metrics.json`（**已尝试，未成功，如实记录**） | `tool/verify_artifacts.py` 一直打 `[note] metrics.json not produced yet (T-05) -- not checked, not claimed ok`。数据集其实**在**（`ai/data/raw` 3,363 个文件 / 482 MB，`ai/data/splits` 四个 CSV 非空、共 3,360 行），所以本轮**真的跑了评估器**，两次：<br>① `python ai/src/evaluate.py --out ai/artifacts/metrics.json` → `FileNotFoundError: ACD-ART-001: model artifact not found at ai/artifacts/acoudiet_fp32_v1.0.0.keras; run T-04 training first`；<br>② 改用**已交付的 tflite** 绕过 Keras：`--tflite app/assets/models/acoudiet_fp32_v1.3.0.tflite` → **同一条错误**（E1/E2/E3 实验矩阵需要模型本体，不只是推理产物），并且提前报出 `ACD-ART-005: E3 requested but no adaptation model is available`。<br>**结论：`metrics.json` 需要 T-04 训练产物（`.keras`），本仓没有、本轮也无法产出**（训练不在能力范围内，`ai/data/augmented` 也是空的）。**因此这一项保持"未检查"，不伪造数字、不把缺件说成通过**（`SPEC-00 §8` 明令禁止预测值）。要闭环需要：拿到/重训 `.keras` → 跑 `evaluate.py` → 再跑一次 `verify_artifacts.py`。**本轮把它从"没人试过"推进到"试过、卡在哪一步、下一手该做什么"，仅此而已。** |
+| 回归 | `tool/verify_all.ps1` **20 步全过**（较上轮 +2：真 `flutter test`、页对齐）；`flutter test` **143 项全过**（137 + 新 6 条无障碍）；`git status` 干净。 |
+
+---
+
 ## 4. ✅ 已全部拍板（2026-09-10）—— **无剩余未决项**
 
 > **原「🔴 待拍板」的 6 项已于 2026-09-10 全部拍板。** 本文件自此**不再有 🔴/🟡 未决项**；下方各条目保留完整依据与备选方案（可追溯），但**结论已生效、不再是开放问题**。

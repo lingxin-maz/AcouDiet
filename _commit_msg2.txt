@@ -1,0 +1,32 @@
+﻿ADR-35/ADR-36: fix the never-run gates, 16 KB alignment, and add version control
+
+ADR-35
+  * flutter test had NEVER been run and was RED: 4 widget-test assertions
+    still required the report title ADR-30 deliberately deleted. Fixed by
+    asserting the score card that is actually rendered (titled with the
+    selected day). flutter test is now green: 143 tests.
+  * The real flutter test is wired into tool/verify_all.ps1 -- previously only
+    an offline shim covering 12 of 26 files ran, so AppShell layout, page
+    chrome, report scope and notifier lifecycle were covered by nothing.
+  * The APK could not be loaded on a 16 KB-page device: every
+    libtensorflowlite_jni.so ABI from tensorflow-lite:2.16.1 had ELF
+    p_align=4096. Swapped for com.google.ai.edge.litert:litert:1.4.2, which
+    ships the same-named .so with p_align=16384 in all four ABIs, exports 225
+    TfLite* symbols (the binding uses 21) and needs only libc/dl/log/m.
+  * New gate tool/check_page_alignment.py, wired into both verify_all and the
+    release build, with a measured negative control.
+
+ADR-36
+  * The project had NO version control; the ADR log records irreversible
+    losses caused by that. Repo rooted at the workspace root so shared/ (the
+    SSOT) and docs/ (the ADR log + frozen SPEC tree) are versioned too.
+  * Checkers moved from _toolchain/ into AcouDiet/tool/ with paths derived
+    from their own location rather than one machine's absolute layout.
+  * New .github/workflows/verify.yml (and verify_all.ps1 now honours
+    ACOUDIET_TOOLCHAIN/PYTHON/FLUTTER so CI can drive it).
+  * New app/test/ui/accessibility_test.dart with a positive control.
+  * Deleted the 2.4 GB of Qwen-era leftovers under AcouDiet/_toolchain/llm.
+  * metrics.json: attempted twice, blocked on the missing T-04 .keras.
+    Recorded as blocked rather than faked.
+
+verify_all.ps1: 20 steps, all passing.

@@ -24,9 +24,12 @@ param(
 
 $ErrorActionPreference = 'Continue'
 $Root = Split-Path -Parent $PSScriptRoot              # AcouDiet/
-$Tool = 'D:\Desktop\Food\_toolchain'
+# ADR-36: the toolchain location is an environment fact, not a constant, so CI (or another
+# machine) can point this at its own checkout instead of one hardcoded path.
+$Tool = if ($env:ACOUDIET_TOOLCHAIN) { $env:ACOUDIET_TOOLCHAIN } else { 'D:\Desktop\Food\_toolchain' }
 $Dart = "$Tool\flutter\bin\cache\dart-sdk\bin\dart.exe"
-$Py   = "$Tool\dl\python\python.exe"
+$Py   = if ($env:ACOUDIET_PYTHON) { $env:ACOUDIET_PYTHON } else { "$Tool\dl\python\python.exe" }
+$Flutter = if ($env:ACOUDIET_FLUTTER) { $env:ACOUDIET_FLUTTER } else { "$Tool\flutter\bin\flutter.bat" }
 
 $results = @()
 
@@ -170,7 +173,7 @@ try {
     # `flutter test` could not run on this machine at all; that stopped being true once the
     # toolchain worked. A gate that never runs is not a gate.
     Invoke-Step "app/test  REAL flutter test (widget + binding suites)" {
-        $flutter = "$Tool\flutter\bin\flutter.bat"
+        $flutter = $Flutter
         if (-not (Test-Path $flutter)) {
             Write-Host "    !! flutter not found at $flutter -- this step cannot be skipped" `
                 -ForegroundColor Red

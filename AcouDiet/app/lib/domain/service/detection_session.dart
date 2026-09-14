@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:typed_data';
 
 import '../../core/errors.dart';
@@ -100,6 +100,7 @@ class DetectionSession {
     required this.votingConfig,
     required this.behaviorConfig,
     this.attributeResolver,
+    this.decoder,
   });
 
   final AudioBridge bridge;
@@ -108,12 +109,18 @@ class DetectionSession {
   final VotingConfig votingConfig;
   final BehaviorConfig behaviorConfig;
 
+  /// ADR-41: the decision point over per-patch posteriors. `null` -- the only thing any production
+  /// wiring passes -- builds [ThresholdVoteDecoder], i.e. the frozen hand-tuned rule to the byte.
+  /// A caller may inject another [SequenceDecoder] to *compare* decoders without editing this file;
+  /// the frozen acceptance criteria are about the default, and the default did not change.
+  final SequenceDecoder? decoder;
+
   /// Supplies the knowledge-base attribute to snapshot into `diet_record.attribute`
   /// (API-03 section 2: the value is frozen at write time so later knowledge-base edits
   /// cannot silently re-word history).
   final String Function(int classId)? attributeResolver;
 
-  VoteAggregator? _aggregator;
+  SequenceDecoder? _aggregator;
   BehaviorAnalyzer? _analyzer;
   StreamSubscription<Map<Object?, Object?>>? _subscription;
 
@@ -181,7 +188,7 @@ class DetectionSession {
 
     _sessionId = sessionId;
     _startedAtMs = TimeUtil.nowMs();
-    _aggregator = VoteAggregator(cfg: votingConfig);
+    _aggregator = decoder ?? ThresholdVoteDecoder(cfg: votingConfig);
     _analyzer = BehaviorAnalyzer(config: behaviorConfig);
     _confirmations.clear();
     _confirmedLabels.clear();

@@ -546,6 +546,54 @@ Future<void> _detectionSessionChecks() async {
   eq('every delivered patch was acknowledged', bridge.ackedSeq.length, 10);
   eq('the decision reached a confirmed state', session.state.decision.stage, VoteStage.confirmed);
 
+  // ADR-41: the decision point is injected, and THIS is the check that makes "pluggable" mean
+  // something. Every other assertion in this file exercises the default path -- a session that
+  // simply ignored its `decoder` argument would pass all of them. So a spy decoder that always
+  // reports `confirmed` is injected, and the session must (a) drive it and (b) report ITS answer.
+  final spyBridge = FakeAudioBridge();
+  final spyEngine = FakeInferenceEngine(scripted: (i) {
+    final probs = Float32List(cfg.FeatureConfig.numClasses);
+    probs[0] = 0.90;
+    for (var c = 1; c < probs.length; c++) {
+      probs[c] = 0.10 / (probs.length - 1);
+    }
+    return probs;
+  });
+  await spyEngine.load(assetPath: 'assets/models/model.tflite');
+  final spy = _SpyDecoder();
+  final spySession = DetectionSession(
+    bridge: spyBridge,
+    engine: spyEngine,
+    diet: FakeRepo(
+      baseDayMs: DateTime(2026, 9, 10, 12).millisecondsSinceEpoch,
+      kcalOverride: FakeRepo.defaultKcalTable,
+    ),
+    votingConfig: VotingConfig.fromFeatureConfig(),
+    behaviorConfig: BehaviorConfig.fromFeatureConfig(),
+    decoder: spy,
+  );
+  await spySession.start(sessionId: 'S-spy');
+  for (var seq = 0; seq < 6; seq++) {
+    spyBridge.emitPatch(
+      seq: seq,
+      tStartMs: seq * 4096,
+      mel: _mel(cfg.FeatureConfig.nFrames),
+      envelope: _envelope(),
+    );
+    await Future<void>.delayed(Duration.zero);
+  }
+  check('ADR-41: the injected decoder actually received the patches', spy.adds >= 6,
+      'adds=${spy.adds}');
+  // ⚠️ The spy must answer something the DEFAULT rule cannot answer on this input. Its first
+  // version returned `confirmed`, which the hand-tuned rule also reaches on six 0.90-confidence
+  // patches -- so this assertion passed even with the injection wired out, i.e. it could not fail.
+  // The scripted input is deliberately high-confidence, so `lowConfidence` + `shouldAskUser` is
+  // unreachable for the default decoder here and only the injected one can produce it.
+  eq('ADR-41: the session reports the injected decoder\'s decision, not the default rule\'s',
+      spySession.state.decision.stage, VoteStage.lowConfidence);
+  eq('ADR-41: the injected decoder\'s shouldAskUser reaches the session too',
+      spySession.state.decision.shouldAskUser, true);
+
   // ADR-23: the behaviour metrics are live, not a stop()-only product. The synthetic envelope
   // carries a 0.7 s peak train, so the chew count and the interval must already be readable
   // while the session is still running.
@@ -788,4 +836,37 @@ class _FakeMaintenance implements MaintenanceRepo {
 
   @override
   Future<int> countTempAudioFiles() async => tempCount;
+}
+
+/// ADR-41: a decoder that answers something the hand-tuned rule cannot answer on the scripted
+/// high-confidence input.
+///
+/// It exists so the session's use of the injected decision point is **observable from outside**:
+/// if `DetectionSession` ignored its `decoder` argument, `adds` would stay 0 AND the reported
+/// decision would be the default rule's `confirmed` instead of `lowConfidence`.
+class _SpyDecoder implements SequenceDecoder {
+  int adds = 0;
+
+  @override
+  int get sampleCount => adds;
+
+  @override
+  int get consecutiveCount => adds;
+
+  @override
+  void reset() => adds = 0;
+
+  @override
+  AggregatedDecision add(InferenceResult r, {required int seq, required bool voiced}) {
+    adds++;
+    return AggregatedDecision(
+      stage: VoteStage.lowConfidence,
+      classId: r.classId,
+      label: r.label,
+      smoothedConfidence: 0.50,
+      consecutiveCount: adds,
+      shouldAskUser: true,
+      smoothedProbs: r.probs,
+    );
+  }
 }

@@ -90,7 +90,43 @@ class VotingConfig {
       );
 }
 
+/// The pluggable decision point over a stream of per-patch posteriors (ADR-41).
+///
+/// Why this interface exists: the three-level rule in [ThresholdVoteDecoder] is a **hand-tuned
+/// posterior decoder** -- an EMA, two fixed thresholds and a consecutive-patch counter. It is a
+/// perfectly good decoder and it stays the default, verbatim. But because it was welded into the
+/// only class that could decode anything, there was no way to *compare* it against another one
+/// without editing the session. The objective's item (1) is exactly that comparison, so the
+/// decision is now an injected collaborator.
+///
+/// `DetectionSession` takes a `SequenceDecoder`; when none is given it builds
+/// [ThresholdVoteDecoder], which is today's behaviour to the byte. The frozen acceptance criteria
+/// (`FF-20a`/`FF-20b`/`FF-20c`) are therefore untouched: nothing about the *default* changed, and
+/// `test/domain/decoder_equivalence_test.dart` pins that.
+///
+/// Contract, all of it already true of the default decoder:
+///  * state lives across patches (FF-20c) and is cleared only by [reset];
+///  * `voiced == false` still advances the smoothing but does not advance the run counter;
+///  * a `seq` gap restarts the run counter but keeps the smoothing;
+///  * the first call after construction or [reset] reports [VoteStage.none].
+abstract class SequenceDecoder {
+  /// Patches incorporated so far (the "effective sample count" of API-02 section 4).
+  int get sampleCount;
+
+  /// How many consecutive patches the current top-1 has held.
+  int get consecutiveCount;
+
+  void reset();
+
+  /// Folds one patch in. [seq] is the monotonic patch sequence from API-01 section 3.2.
+  AggregatedDecision add(InferenceResult r, {required int seq, required bool voiced});
+}
+
 /// Three-level result aggregation (P-06, `API-02` section 4).
+///
+/// **This is the hand-tuned baseline decoder**, moved here unchanged by ADR-41. The body below is
+/// the same code that used to live in `VoteAggregator`; see [VoteAggregator] for the compatibility
+/// name.
 ///
 /// State deliberately lives across patches (FF-20c): the EMA and the consecutive counter are
 /// *not* reset per patch, only at a session boundary via [reset].
@@ -103,8 +139,8 @@ class VotingConfig {
 ///    evidence yet, so no class is reported;
 ///  * the first confirmation takes about 4-5 s (FF-20a); "results within 2 s" is a banned
 ///    claim (FF-25).
-class VoteAggregator {
-  VoteAggregator({required this.cfg});
+class ThresholdVoteDecoder implements SequenceDecoder {
+  ThresholdVoteDecoder({required this.cfg});
 
   final VotingConfig cfg;
 
@@ -231,6 +267,36 @@ class VoteAggregator {
     }
     return best;
   }
+}
+
+/// The compatibility name for the default decoder (ADR-41).
+///
+/// Every existing call site, every offline assertion and `session_tests` talk to `VoteAggregator`,
+/// and none of them should have to change to learn that the decision point is now pluggable. This
+/// class is a **pure delegation** to [ThresholdVoteDecoder]: there is no second copy of the rule,
+/// so the two can never disagree.
+///
+/// ⚠️ It is not `extends` but a delegation on purpose. Inheriting would leave a subclass that could
+/// override half the rule, and the whole point of the split is that there is exactly one
+/// implementation of the frozen behaviour.
+class VoteAggregator implements SequenceDecoder {
+  VoteAggregator({required this.cfg}) : _inner = ThresholdVoteDecoder(cfg: cfg);
+
+  final VotingConfig cfg;
+  final ThresholdVoteDecoder _inner;
+
+  @override
+  int get sampleCount => _inner.sampleCount;
+
+  @override
+  int get consecutiveCount => _inner.consecutiveCount;
+
+  @override
+  void reset() => _inner.reset();
+
+  @override
+  AggregatedDecision add(InferenceResult r, {required int seq, required bool voiced}) =>
+      _inner.add(r, seq: seq, voiced: voiced);
 }
 
 extension VotingConfigLabels on VotingConfig {

@@ -855,6 +855,70 @@ void _voteAggregatorChecks() {
     );
   }
 
+  // ---------------------------------------------------------------------------------------
+  // ADR-41: the hand-tuned rule became the DEFAULT implementation of an injectable
+  // `SequenceDecoder`, so another decoder can be compared against it without editing the
+  // session. That refactor is only legitimate if it changed nothing, so the two names are
+  // driven over the same scripted posterior sequence and their WHOLE decision trace is
+  // compared -- not just the final state, which would miss a divergence that later repairs.
+  // ---------------------------------------------------------------------------------------
+  List<String> decoderTrace(SequenceDecoder d) {
+    final out = <String>[];
+    for (var i = 0; i < 24; i++) {
+      final int cls;
+      final double p;
+      if (i < 9) {
+        cls = 0;
+        p = 0.90; // high confidence, should confirm
+      } else if (i == 9) {
+        cls = 0;
+        p = 0.50; // tauLow <= p < tauConfirm -> the only asking branch
+      } else if (i == 10) {
+        cls = 0;
+        p = 0.20; // below tauLow
+      } else if (i == 11) {
+        cls = 4;
+        p = 0.85; // switch class, counter restarts
+      } else {
+        cls = 4;
+        p = 0.85;
+      }
+      final voiced = i != 15; // one silent patch
+      final seq = i < 14 ? i : i + 3; // a seq gap at i == 14
+      final dec = d.add(res(cls, p), seq: seq, voiced: voiced);
+      out.add('${dec.stage.name}|${dec.classId}|${dec.shouldAskUser}|'
+          '${dec.smoothedConfidence.toStringAsFixed(6)}|${dec.consecutiveCount}');
+    }
+    return out;
+  }
+
+  final viaFacade = decoderTrace(VoteAggregator(cfg: voteCfg));
+  final viaDefault = decoderTrace(ThresholdVoteDecoder(cfg: voteCfg));
+  eq('ADR-41: the compatibility facade and the default decoder agree on all 24 patches',
+      viaFacade.join(';'), viaDefault.join(';'));
+
+  // Positive controls for the trace itself: an equality check over a degenerate script would
+  // pass while proving nothing.
+  check('ADR-41: the scripted trace exercised at least three stages',
+      viaFacade.map((s) => s.split('|').first).toSet().length >= 3);
+  check('ADR-41: the scripted trace reached a confirmation',
+      viaFacade.any((s) => s.startsWith('confirmed')));
+  check('ADR-41: the scripted trace reached the asking branch',
+      viaFacade.any((s) => s.contains('|true|')));
+
+  // Negative control: the comparison must be able to FAIL. A trace equality that held for any
+  // two decoders would say nothing about the refactor.
+  final sloppy = decoderTrace(ThresholdVoteDecoder(
+      cfg: VotingConfig(
+    emaWindow: voteCfg.emaWindow,
+    emaAlpha: voteCfg.emaAlpha,
+    confirmConsecutivePatches: voteCfg.confirmConsecutivePatches,
+    tauConfirm: 0.99,
+    tauLow: 0.99,
+  )));
+  check('ADR-41 negative control: a different decoder yields a different trace',
+      sloppy.join(';') != viaFacade.join(';'));
+
   final agg = VoteAggregator(cfg: voteCfg);
   eq('the first add after reset returns none',
       agg.add(res(0, 0.9), seq: 0, voiced: true).stage, VoteStage.none);

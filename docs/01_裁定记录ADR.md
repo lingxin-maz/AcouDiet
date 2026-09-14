@@ -689,6 +689,20 @@
 
 ---
 
+### ADR-41 ✅ 把手工投票器改成**可注入的解码器**：默认实现逐字不变，且这件事被证明"能不能失败"
+
+| 项 | 内容 |
+|---|---|
+| 来源 | 目标项 (1)「可插拔时序解码器替换手工投票器（**保留手工规则作为 baseline 实现**）」。 |
+| 为什么这一项**不需要裁定** | 目标的措辞本身就是"不破冻结"的版本：接口化 + 默认实现不变。`FF-20a`（首次确认 4–5 s）、`FF-20b`（阈值须标定）、`FF-20c`（EMA/连续计数跨 patch 保持）约束的是**默认行为**，而默认行为一个字节没动。 |
+| 改了什么 | `inference.dart`：新增 `abstract class SequenceDecoder`（`sampleCount` / `consecutiveCount` / `reset` / `add`），把原来的三级聚合逻辑**原样搬进** `ThresholdVoteDecoder implements SequenceDecoder`，并把 `VoteAggregator` 改成**纯委托**的门面（`implements` 而非 `extends`——继承会留下一个能覆盖半条规则的子类，而这次拆分的全部意义就是"冻结行为只有一份实现"）。<br>`detection_session.dart`：新增可选参数 `SequenceDecoder? decoder`，`_aggregator` 的类型从具体类放宽到接口，构造改为 `decoder ?? ThresholdVoteDecoder(cfg: votingConfig)`——**生产接线传的都是 `null`，即今天的规则逐字不变**。<br>**调用点零改动**：`VoteAggregator` 这个旧名字仍然可用，`pure_tests` / `session_tests` / 所有既有断言一行没改。 |
+| 判据（**6 条，其中有 4 条是控制**） | `pure_tests.dart`：① 同一段 24 patch 脚本分别驱动门面与默认解码器，**整条决策轨迹逐字符相等**（不是只比最终状态——只比最终状态会漏掉"中途分叉又收敛"）；②③④ **轨迹本身的正控**：脚本必须走过 ≥3 个 stage、必须触发过 confirmed、必须触发过 asking 分支——**否则等式在一条退化轨迹上照样成立而毫无意义**；⑤ **负控**：换一个 `tauConfirm/tauLow = 0.99` 的解码器，轨迹**必须不同**。<br>`session_tests.dart`：⑥ 注入一个 **spy 解码器**，断言会话真的驱动了它、且**上报的是它的答案**。 |
+| ⚠️ **这里我写了一条不可能失败的判据，并且是靠负控抓出来的** | spy 第一版返回 `VoteStage.confirmed`。我把注入接线**故意拆掉**去跑负控时发现：它依然通过——因为手工规则在六个 0.90 置信度的 patch 上**也**到 `confirmed`。**一条在错误实现下依然通过的断言等于没有断言**。改为让 spy 返回 `lowConfidence` + `shouldAskUser=true`（脚本输入是高置信度的，默认规则**给不出**这个答案）。**负控实测**：拆掉注入后 **3 条全红**（`adds=0`；`actual=VoteStage.confirmed expected=VoteStage.lowConfidence`；`shouldAskUser actual=false expected=true`），恢复后 **SESSION 127 全绿**。 |
+| 诚实边界 | ① 这**只是接口与默认实现**，**没有**第二个可用的学习式解码器——目标里"替换"的那一半要等一个能用的逐帧预测器（见 `ADR-40`：出厂模型塌成常数类）。所以本 ADR 交付的是**扩展点 + 无行为变更的证明**，不是"换成了学习式解码"。② 没有性能实测：多了一层委托，开销应可忽略但**未测**。③ UI 无改动——解码器的选择目前只有测试会注入，生产仍是 `null`。 |
+| 回归实测 | `verify_all.ps1` **ALL SUITES PASSED (20 steps)**；`PURE 207`（新增 6）·`SESSION 127`（新增 3）·`UI 413`·`DATA 63`·`NATIVE 79`；`flutter analyze` **0 error**。 |
+
+---
+
 ## 4. ✅ 已全部拍板（2026-09-10）—— **无剩余未决项**
 
 > **原「🔴 待拍板」的 6 项已于 2026-09-10 全部拍板。** 本文件自此**不再有 🔴/🟡 未决项**；下方各条目保留完整依据与备选方案（可追溯），但**结论已生效、不再是开放问题**。

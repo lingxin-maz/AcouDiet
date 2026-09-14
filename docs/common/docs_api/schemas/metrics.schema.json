@@ -1,0 +1,519 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://acoudiet.local/schemas/metrics.schema.json",
+  "title": "AcouDiet ai/artifacts/metrics.json（T-05 评估与指标报告）",
+  "description": "离线训练侧评估报告的 JSON Schema。字段清单与必报项权威见 docs/backend/docs_api/API-06_AI训练侧数据契约.md 第 4 节，必报项来源为主方案 §7.4（缺一不可）：① 总体 Top-1 + Wilson 95% 置信区间；② 每类 Precision / Recall / F1 + 宏平均 + 加权平均；③ 混淆矩阵（6x6 或 7 类含「未识别」）；④ 每类测试样本数；⑤ in-domain 与跨域对照；⑥ 三级实验矩阵 E1/E2/E3；⑦ 推理延迟（单 patch ms、端到端确认延迟 s）；⑧ 消融表。🔴 全部数值一律为 D3/D4 实测产出，本 schema 只约束字段存在性与类型，禁止在此或报告里预填任何准确率 / 置信区间 / 延迟 / 参数量预测值（SPEC-00 §8 禁令 1）。✅ nFrames 已拍板并冻结为 129（ADR-P1，2026-09-10；SPEC-00 §3.5），必须等于 feature_config.n_frames 与 model_card.nFrames。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAtMs",
+    "modelRef",
+    "nFrames",
+    "overall",
+    "perClass",
+    "macroAvg",
+    "weightedAvg",
+    "confusionMatrix",
+    "domainComparison",
+    "experimentMatrix",
+    "latency",
+    "ablations"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "本文件的契约版本；新增/删除/改义字段时递增（API-06 §10）"
+    },
+    "generatedAtMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "生成时刻，epoch 毫秒（UTC）"
+    },
+    "modelRef": {
+      "type": "string",
+      "description": "被评估制品的卡文件路径，固定指向 ai/artifacts/model_card.json"
+    },
+    "nFrames": {
+      "type": "integer",
+      "const": 128,
+      "description": "ADR-21（2026-09-12）修订为 128：张量宽度是 n_frames = 128，STFT 原始帧数是 raw_mel_frames = 129（尾帧被丢弃）。必须等于 feature_config.n_frames 与 model_card.nFrames。~~已拍板并冻结为 129（ADR-P1，2026-09-10）~~ 已被取代 —— 见 shared/feature_config.json 的 _decisions.mel_frontend_v1_1。"
+    },
+    "overall": {
+      "type": "object",
+      "description": "必报项 ①：总体指标（D3/D4 实测产出）",
+      "additionalProperties": false,
+      "required": [
+        "testSet",
+        "n",
+        "top1",
+        "wilson95"
+      ],
+      "properties": {
+        "testSet": {
+          "type": "string",
+          "enum": [
+            "test_public",
+            "test_mobile"
+          ],
+          "description": "总体指标所用的测试集；对应 ai/data/splits 下的 CSV（API-06 §3）"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "该测试集参与评估的样本数；必须等于 perClass 各类 support 之和（必报项 ④）"
+        },
+        "top1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "实测 Top-1 准确率（D3/D4 实测产出，禁止预填预测值）；展示时必须带 Wilson 区间与样本数（SPEC-00 §3.10）"
+        },
+        "wilson95": {
+          "type": "object",
+          "description": "Wilson 95% 置信区间（statsmodels proportion_confint method='wilson'）；只有小样本下的区间才可信，不得只报点估计",
+          "additionalProperties": false,
+          "required": [
+            "low",
+            "high"
+          ],
+          "properties": {
+            "low": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "区间下界"
+            },
+            "high": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "区间上界"
+            }
+          }
+        }
+      }
+    },
+    "perClass": {
+      "type": "array",
+      "description": "必报项 ②④：每类的 Precision / Recall / F1 与测试样本数；须覆盖全部 6 类（FF-19）",
+      "minItems": 6,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "description": "单类指标行",
+        "additionalProperties": false,
+        "required": [
+          "label",
+          "support",
+          "precision",
+          "recall",
+          "f1"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "enum": [
+              "chips",
+              "apple",
+              "cookie",
+              "bread",
+              "carrot",
+              "drink",
+              "未识别"
+            ],
+            "description": "类别标签（FF-19）；「未识别」仅在混淆矩阵含第 7 类时出现在本数组中"
+          },
+          "support": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "该类测试样本数（暴露类别不平衡）"
+          },
+          "precision": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "实测精确率（D3/D4 实测产出）"
+          },
+          "recall": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "实测召回率（D3/D4 实测产出）"
+          },
+          "f1": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "实测 F1（D3/D4 实测产出）"
+          }
+        }
+      }
+    },
+    "macroAvg": {
+      "type": "object",
+      "description": "必报项 ②：宏平均（各类等权，D3/D4 实测产出）",
+      "additionalProperties": false,
+      "required": [
+        "precision",
+        "recall",
+        "f1"
+      ],
+      "properties": {
+        "precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "宏平均精确率"
+        },
+        "recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "宏平均召回率"
+        },
+        "f1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "宏平均 F1"
+        }
+      }
+    },
+    "weightedAvg": {
+      "type": "object",
+      "description": "必报项 ②：加权平均（按 support 加权，D3/D4 实测产出）",
+      "additionalProperties": false,
+      "required": [
+        "precision",
+        "recall",
+        "f1"
+      ],
+      "properties": {
+        "precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "加权平均精确率"
+        },
+        "recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "加权平均召回率"
+        },
+        "f1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "加权平均 F1"
+        }
+      }
+    },
+    "confusionMatrix": {
+      "type": "object",
+      "description": "必报项 ③：混淆矩阵，6x6（纯分类）或 7 类含「未识别」；labels 顺序必须与 feature_config.class_labels 一致，「未识别」置于末位",
+      "additionalProperties": false,
+      "required": [
+        "labels",
+        "matrix"
+      ],
+      "properties": {
+        "labels": {
+          "type": "array",
+          "description": "轴标签顺序；与 ai/artifacts/confusion_matrix.png 的轴标签必须一致",
+          "minItems": 6,
+          "maxItems": 7,
+          "items": {
+            "type": "string",
+            "enum": [
+              "chips",
+              "apple",
+              "cookie",
+              "bread",
+              "carrot",
+              "drink",
+              "未识别"
+            ],
+            "description": "类别标签或「未识别」"
+          }
+        },
+        "matrix": {
+          "type": "array",
+          "description": "行 = 真实类别，列 = 预测类别；matrix[i][j] 为计数。第 i 行之和必须等于对应类别的 support",
+          "minItems": 6,
+          "maxItems": 7,
+          "items": {
+            "type": "array",
+            "description": "单个真实类别的预测分布",
+            "minItems": 6,
+            "maxItems": 7,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "样本计数（D3/D4 实测产出）"
+            }
+          }
+        }
+      }
+    },
+    "domainComparison": {
+      "type": "array",
+      "description": "必报项 ⑤：in-domain 与跨域对照；自采手机测试集才是要对外宣传的数字，禁止用 in-domain 结果替代",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "description": "单个测试集的实测对照行",
+        "additionalProperties": false,
+        "required": [
+          "testSet",
+          "n",
+          "top1",
+          "wilson95"
+        ],
+        "properties": {
+          "testSet": {
+            "type": "string",
+            "enum": [
+              "test_public",
+              "test_mobile"
+            ],
+            "description": "测试集标识；test_public 为同域，test_mobile 为跨域"
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "该测试集样本数"
+          },
+          "top1": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "实测 Top-1（D3/D4 实测产出）"
+          },
+          "wilson95": {
+            "type": "object",
+            "description": "该测试集的 Wilson 95% 置信区间",
+            "additionalProperties": false,
+            "required": [
+              "low",
+              "high"
+            ],
+            "properties": {
+              "low": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "区间下界"
+              },
+              "high": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "区间上界"
+              }
+            }
+          }
+        }
+      }
+    },
+    "experimentMatrix": {
+      "type": "array",
+      "description": "必报项 ⑥：三级实验矩阵 E1 / E2 / E3（含义见主方案 §3.11），三项缺一不可",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "description": "单个实验行",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "trainOn",
+          "evalOn",
+          "n",
+          "top1",
+          "wilson95"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "E1",
+              "E2",
+              "E3"
+            ],
+            "description": "实验编号"
+          },
+          "trainOn": {
+            "type": "array",
+            "description": "训练数据来源标识列表（如公共集、自采集）",
+            "items": {
+              "type": "string",
+              "description": "数据来源标识"
+            }
+          },
+          "evalOn": {
+            "type": "string",
+            "description": "评估集标识（取值同 testSet 或跨人子集的标识）"
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "该实验的评估样本数"
+          },
+          "top1": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "实测 Top-1（D3/D4 实测产出）"
+          },
+          "wilson95": {
+            "type": "object",
+            "description": "该实验的 Wilson 95% 置信区间",
+            "additionalProperties": false,
+            "required": [
+              "low",
+              "high"
+            ],
+            "properties": {
+              "low": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "区间下界"
+              },
+              "high": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "区间上界"
+              }
+            }
+          }
+        }
+      }
+    },
+    "latency": {
+      "type": "object",
+      "description": "必报项 ⑦：推理延迟实测（中端真机实测产出，禁止预填目标值）",
+      "additionalProperties": false,
+      "required": [
+        "patchInferenceMs",
+        "endToEndConfirmSeconds"
+      ],
+      "properties": {
+        "patchInferenceMs": {
+          "type": "object",
+          "description": "单 patch 推理耗时实测（毫秒）",
+          "additionalProperties": false,
+          "required": [
+            "p50",
+            "p90",
+            "max",
+            "deviceModel",
+            "delegate"
+          ],
+          "properties": {
+            "p50": {
+              "type": "number",
+              "minimum": 0,
+              "description": "中位数毫秒（实测）"
+            },
+            "p90": {
+              "type": "number",
+              "minimum": 0,
+              "description": "P90 毫秒（实测）"
+            },
+            "max": {
+              "type": "number",
+              "minimum": 0,
+              "description": "最大值毫秒（实测）"
+            },
+            "deviceModel": {
+              "type": "string",
+              "description": "实测机型标识"
+            },
+            "delegate": {
+              "type": "string",
+              "enum": [
+                "xnnpack",
+                "nnapi",
+                "cpu"
+              ],
+              "description": "实测所用委托；与 App 侧 delegateInUse 取值一致（API-02 §3.3）"
+            }
+          }
+        },
+        "endToEndConfirmSeconds": {
+          "type": "object",
+          "description": "端到端确认延迟实测（秒）；机制上的时间构成见 FF-20a，此处只填实测值",
+          "additionalProperties": false,
+          "required": [
+            "median",
+            "p90"
+          ],
+          "properties": {
+            "median": {
+              "type": "number",
+              "minimum": 0,
+              "description": "中位数秒（实测）"
+            },
+            "p90": {
+              "type": "number",
+              "minimum": 0,
+              "description": "P90 秒（实测）"
+            }
+          }
+        }
+      }
+    },
+    "ablations": {
+      "type": "array",
+      "description": "必报项 ⑧：消融摘要表；必须含基线行与「降噪 on/off」「各增强组合 on/off」行，完整结果见 ai/artifacts/ablations.json，两处同名条目数值必须一致。RIR 混响与 Mixup 属已裁剪项（X-06），不得出现",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "description": "单条消融结果",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "toggle",
+          "n",
+          "top1",
+          "deltaVsBaseline"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "消融条目标识；基线行需与 ablations.json 的 baseline.id 一致"
+          },
+          "name": {
+            "type": "string",
+            "description": "消融项名称（中文）；不得出现 RIR / Mixup"
+          },
+          "toggle": {
+            "type": "string",
+            "description": "开/关组合标识（如 denoise=on）"
+          },
+          "n": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "该条目的评估样本数"
+          },
+          "top1": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "实测 Top-1（D3/D4 实测产出）"
+          },
+          "deltaVsBaseline": {
+            "type": "number",
+            "description": "相对基线的实测差值（可为负）；不得填报「预期提升」"
+          }
+        }
+      }
+    }
+  }
+}

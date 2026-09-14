@@ -1,0 +1,10 @@
+name: flutter_test
+description: Offline shim that re-exports package:test for the non-widget test suites.
+publish_to: none
+version: 0.0.1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  test: any

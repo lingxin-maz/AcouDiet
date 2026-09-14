@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.1",
+  "model_name": "acoudiet_fp32.tflite",
+  "num_classes": 6,
+  "labels": [
+    {
+      "id": 0,
+      "label": "chips",
+      "display_name_zh": "薯片",
+      "dataset_folder": "Chips",
+      "dataset_clip_count_reference": 720,
+      "knowledge_category": "processed_snack",
+      "acoustic_attribute": "crisp"
+    },
+    {
+      "id": 1,
+      "label": "cabbage",
+      "display_name_zh": "卷心菜",
+      "dataset_folder": "Cabbage",
+      "dataset_clip_count_reference": 500,
+      "knowledge_category": "vegetable",
+      "acoustic_attribute": "crisp_juicy"
+    },
+    {
+      "id": 2,
+      "label": "gummies",
+      "display_name_zh": "软糖",
+      "dataset_folder": "Gummies",
+      "dataset_clip_count_reference": 679,
+      "knowledge_category": "processed_snack",
+      "acoustic_attribute": "chewy_elastic"
+    },
+    {
+      "id": 3,
+      "label": "noodles",
+      "display_name_zh": "面条",
+      "dataset_folder": "Noodles",
+      "dataset_clip_count_reference": 412,
+      "knowledge_category": "staple_food",
+      "acoustic_attribute": "soft"
+    },
+    {
+      "id": 4,
+      "label": "carrot",
+      "display_name_zh": "胡萝卜",
+      "dataset_folder": "Carrots",
+      "dataset_clip_count_reference": 661,
+      "knowledge_category": "vegetable",
+      "acoustic_attribute": "hard_crisp"
+    },
+    {
+      "id": 5,
+      "label": "drink",
+      "display_name_zh": "饮料",
+      "dataset_folder": "Drinks",
+      "dataset_clip_count_reference": 293,
+      "knowledge_category": "liquid",
+      "acoustic_attribute": "liquid"
+    }
+  ],
+  "reserve_labels": [
+    {
+      "label": "pizza",
+      "display_name_zh": "披萨",
+      "dataset_folder": "Pizza",
+      "dataset_clip_count_reference": 610
+    },
+    {
+      "label": "fries",
+      "display_name_zh": "薯条",
+      "dataset_folder": "Fries",
+      "dataset_clip_count_reference": 645
+    }
+  ],
+  "removed_labels": [
+    {
+      "label": "apple",
+      "reason": "not_present_in_eating_sound_collection_v1"
+    },
+    {
+      "label": "cookie",
+      "reason": "not_present_in_eating_sound_collection_v1"
+    },
+    {
+      "label": "bread",
+      "reason": "not_present_in_eating_sound_collection_v1"
+    },
+    {
+      "label": "nuts",
+      "reason": "not_present_in_eating_sound_collection_v1"
+    }
+  ]
+}

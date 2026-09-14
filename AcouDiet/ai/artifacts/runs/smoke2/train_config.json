@@ -1,0 +1,58 @@
+{
+  "runId": "smoke2",
+  "createdAtMs": 1789179187148,
+  "nFrames": 129,
+  "inputShape": [
+    1,
+    128,
+    129,
+    1
+  ],
+  "numClasses": 6,
+  "paramCount": 942588,
+  "epochsRun": 1,
+  "bestEpoch": 1,
+  "epochsRequested": 1,
+  "selectionSplit": "val",
+  "device": "/CPU:0",
+  "deviceRequested": "auto",
+  "deviceSwitchReason": "auto: no TensorFlow GPU (CUDA is unsupported on native Windows TF>=2.11)",
+  "baseSeed": 20260910,
+  "augment": "off",
+  "denoise": "off",
+  "trainRows": 64,
+  "valRows": 64,
+  "limit": 64,
+  "batchSize": 32,
+  "pretrained": false,
+  "pretrainedNote": "ImageNet weights unavailable offline (no network); trained from random initialisation -- pretrained=false (SPEC-T-04 section 6)",
+  "earlyStoppingPatience": 5,
+  "watchdogSeconds": 7200.0,
+  "kerasFile": null,
+  "savedModelDir": null,
+  "elapsedS": 74.591,
+  "history": {
+    "loss": [
+      1.5878223180770874
+    ],
+    "val_loss": [
+      1.7656831741333008
+    ],
+    "accuracy": [
+      0.5
+    ],
+    "val_accuracy": [
+      1.0
+    ]
+  },
+  "splitSha256": {
+    "train": "bb07999a19f58008fa12c07edf1f2b26707bd642987fd4e6bd4dbad2ebea3a85",
+    "val": "788949e1b4cb18781997e0ebeb4c03a6be2f2246030f5d739264b36bba36c493",
+    "test_public": "c18ec10c667fa27d60c813b042a78e035f52fb27a451decdd60d35b1c335c4b4",
+    "test_mobile": "48bea30ac7aca1c72188f51a20dfc68cd1a3627dc52aa2968e3f2f89f0fef247"
+  },
+  "featureConfigSha256": "b87ae4e4aa8eb671c6288e44fb9371dc22f9193133747ebf77ebbe95b9c339a2",
+  "kerasVersion": "3.15.1",
+  "tfVersion": "2.21.0",
+  "substituteCorpus": true
+}

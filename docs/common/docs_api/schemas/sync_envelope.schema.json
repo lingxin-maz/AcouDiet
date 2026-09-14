@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://acoudiet.local/schemas/sync_envelope.schema.json",
+  "title": "AcouDiet Sync Envelope (v2.0 RESERVED — NOT IMPLEMENTED IN v1.0)",
+  "description": "预留的云端同步信封。v1.0 状态 DISABLED：本 schema 仅用于冻结未来的接口边界，任何 v1.0 代码不得引用。权威说明见 docs/common/docs_api/API-05_后端数据通讯规范.md 第 9 节。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "envelopeVersion",
+    "deviceId",
+    "batchId",
+    "sentAtMs",
+    "direction",
+    "records"
+  ],
+  "properties": {
+    "envelopeVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "信封格式版本；与 API-05 §9.3 保持一致"
+    },
+    "deviceId": {
+      "type": "string",
+      "description": "安装级 UUID v4；重置 App 数据后重新生成。不用于识别自然人"
+    },
+    "accountId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "v2.0 引入账号体系后的标识。v1.0 无此概念，允许为 null"
+    },
+    "batchId": {
+      "type": "string",
+      "description": "UUID v4，客户端生成；服务端以此实现幂等接收"
+    },
+    "sentAtMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "epoch 毫秒（UTC）"
+    },
+    "direction": {
+      "type": "string",
+      "enum": [
+        "push",
+        "pull",
+        "ack"
+      ]
+    },
+    "records": {
+      "type": "array",
+      "description": "本批次的记录操作。D2 原则：只同步结构化数据，绝不含音频或 Mel 特征",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "op",
+          "recordId",
+          "updatedAtMs"
+        ],
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "upsert",
+              "delete"
+            ],
+            "description": "delete 恒优先于 upsert；删除不可被覆盖（tombstone 语义，原则 D7）"
+          },
+          "recordId": {
+            "type": "string",
+            "description": "UUID v4；幂等键（原则 D6）。对应 SQLite diet_record.record_id"
+          },
+          "updatedAtMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "冲突解决依据：后写胜出（LWW）"
+          },
+          "payloadJson": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "AEAD 密文（base64）。明文为 diet_record + behavior_metrics 的合并体。op=delete 时为 null。端到端加密，服务端不可解密（原则 D5）"
+          },
+          "payloadNonce": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "12 字节 nonce（base64）"
+          },
+          "payloadTag": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "16 字节认证标签（base64）"
+          }
+        }
+      }
+    },
+    "cursor": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "lastSyncedAtMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastServerSeq": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "not": {
+    "description": "三道结构性防线：信封中不允许出现任何音频相关字段名（原则 D1）",
+    "anyOf": [
+      {
+        "required": [
+          "audio"
+        ]
+      },
+      {
+        "required": [
+          "pcm"
+        ]
+      },
+      {
+        "required": [
+          "mel"
+        ]
+      },
+      {
+        "required": [
+          "wavPath"
+        ]
+      },
+      {
+        "required": [
+          "audioBase64"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,246 @@
+// AcouDiet Android host — Gradle configuration (SPEC-C-04).
+//
+// Signing policy (SPEC-C-04 section 2.2 step 4): `key.properties` supplies the four
+// credentials, and a release build WITHOUT them **fails** instead of silently falling back
+// to the debug signature. A debug-signed artifact must never be mistaken for a release
+// deliverable.
+//
+// minifyEnabled stays false: SPEC-C-04 section 9 records that R8/minify is not required for
+// v1.0, and enabling it would invalidate every SPEC-C-05 gate and could break reflection
+// paths in the native runtime.
+//
+// NOTE (build works now): this checkout DOES have network access (an earlier "no network"
+// diagnosis was a Windows schannel credential failure in PowerShell/curl, not a dead link).
+// `flutter pub get` resolves, `GRADLE_USER_HOME=_toolchain/cache/gradle` caches AGP/Kotlin,
+// and `flutter build apk --debug` produces `app-debug.apk`. A release build additionally
+// needs `key.properties` (see the task-graph check at the bottom of this file).
+// All parameters below are complete and FF-23 compliant (minSdk 24 / targetSdk 34 /
+// compileSdk 34 / package com.acoudiet.app).
+
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader("UTF-8") { reader -> localProperties.load(reader) }
+}
+
+def flutterVersionCode = localProperties.getProperty("flutter.versionCode") ?: "1"
+def flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "1.0.0"
+
+// ---- release signing material: read from a file that must never be committed ------------
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+def hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.withReader("UTF-8") { reader -> keystoreProperties.load(reader) }
+}
+
+// The ABI list, if the caller asked for one. Gradle reads `ORG_GRADLE_PROJECT_acoudietAbis`
+// from the environment, so the setting travels without a `-P` flag through the `flutter` CLI.
+def acoudietAbis = (project.findProperty('acoudietAbis') ?: '').toString().trim()
+
+android {
+    namespace = "com.acoudiet.app"
+    compileSdk = 34
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    defaultConfig {
+        applicationId = "com.acoudiet.app"
+        // FF-23: Android only, minSdk 24 / targetSdk 34.
+        minSdk = 24
+        targetSdk = 34
+        versionCode = flutterVersionCode.toInteger()
+        versionName = flutterVersionName
+    }
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                storeFile = file(keystoreProperties["storeFile"])
+                storePassword = keystoreProperties["storePassword"]
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // WARNING: this closure runs at **configuration** time, i.e. for *every* task, not
+            // only for release ones. Raising the "key.properties is required" error here made
+            // `flutter build apk --debug` -- and therefore `flutter run` -- fail with a
+            // release-signing message. The requirement is enforced below by
+            // `gradle.taskGraph.whenReady`, which is the first point at which a release build
+            // can actually be told apart from a debug one.
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.release
+            }
+            // SPEC-C-04 section 9: R8/minify not required for v1.0.
+            minifyEnabled = false
+            shrinkResources = false
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = false
+        }
+    }
+
+    // SPEC-C-04 section 7 #5 / FF-24 items 4-5: the **release** manifest must contain exactly
+    // one permission and must not contain INTERNET. Enforced here as well as in the manifest so
+    // a merged library manifest cannot slip one in unnoticed.
+    //
+    // Scoped to the release variant on purpose: Flutter's own debug/profile manifests add
+    // INTERNET so the Dart VM service can attach during `flutter run`. Auditing those would
+    // fail every developer build, and it is the release APK that the privacy claim covers
+    // (`SPEC-C-01` section 7 #1 verifies `app-release.apk`).
+    applicationVariants.all { variant ->
+        if (variant.name != "release") return
+        variant.outputs.all { output ->
+            // NOTE (real bug, found only once a release build first got past signing): the
+            // original body read `output.getProcessManifestProvider().get().outputFile`, but
+            // that provider returns a **Task** (`ProcessMultiApkApplicationManifest`), which has
+            // no `outputFile` property -- so the guard died with
+            // "Could not get unknown property 'outputFile' for task ':app:processReleaseManifest'"
+            // and the release build could never even be attempted. This check is what enforces
+            // the privacy claim, so it must actually run.
+            //
+            // The merged manifest is located through the task's own declared outputs rather than
+            // a version-specific property, which survives AGP API churn (`multiApkManifestOutput
+            // Directory` vs `manifestOutputFile` vs ...).
+            def manifestTask = output.processManifestProvider.get()
+            manifestTask.doLast {
+                def outputs = manifestTask.outputs.files.files
+                def manifest = outputs.find { it.isFile() && it.name == "AndroidManifest.xml" }
+                if (manifest == null) {
+                    manifest = outputs.findAll { it.isDirectory() }
+                        .collect { new File(it, "AndroidManifest.xml") }
+                        .find { it.isFile() }
+                }
+                if (manifest == null) {
+                    // Fail closed: if the merged manifest cannot be audited, the privacy claim
+                    // cannot be made, so the release artifact must not be produced.
+                    throw new GradleException(
+                        "SPEC-C-04: could not locate the merged RELEASE manifest among " +
+                        "${outputs*.name} to audit FF-24 items 4/5.")
+                }
+                def text = manifest.text
+                if (text.contains("android.permission.INTERNET")) {
+                    throw new GradleException(
+                        "FF-24 item 4 violated: the merged RELEASE manifest requests INTERNET.")
+                }
+                def permissions = (text =~ /uses-permission android:name="([^"]+)"/)
+                    .collect { it[1] }
+                    .findAll { !it.endsWith("DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION") }
+                if (permissions.size() != 1 ||
+                    permissions[0] != "android.permission.RECORD_AUDIO") {
+                    throw new GradleException(
+                        "FF-24 item 5 violated: expected exactly RECORD_AUDIO in the " +
+                        "RELEASE manifest, got ${permissions}")
+                }
+                logger.lifecycle("FF-24 items 4/5 audited on ${manifest.name}: " +
+                    "exactly RECORD_AUDIO, no INTERNET")
+            }
+        }
+    }
+
+    // ---- third-party native ABIs -------------------------------------------------------------
+    // Flutter's `--target-platform android-arm64` filters *Flutter's own* libraries but NOT the
+    // natives of a third-party AAR, so adding the TFLite runtime shipped all four of its ABIs:
+    // 14.0 MiB of native code where an arm64 phone uses 3.2, taking the release APK from 17.1 to
+    // 31.1 MB. `ndk.abiFilters` is the mechanism that actually controls what gets packaged.
+    //
+    // This is opt-in on purpose: the emulator is x86_64, and silently dropping its ABI would
+    // remove the only device this repo can test on. For a phone-only release:
+    //     $env:ORG_GRADLE_PROJECT_acoudietAbis = 'arm64-v8a'
+    //
+    // Applied at the END of the `android` block, after Flutter's plugin has set its own filters,
+    // so this is the last word rather than being overwritten.
+    if (acoudietAbis) {
+        logger.lifecycle("acoudietAbis: restricting packaged ABIs to ${acoudietAbis}")
+        defaultConfig {
+            ndk {
+                // `abiFilters(...)` as a method rejects a List in this Groovy DSL
+                // ("Could not find method abiFilters() for arguments [[arm64-v8a]]"), so the
+                // existing set is edited in place instead.
+                abiFilters.clear()
+                abiFilters.addAll(acoudietAbis.split(',')*.trim())
+            }
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+// ---------------------------------------------------------------------------------------------
+// The TFLite runtime. **Without this the App has no inference engine on a device at all.**
+//
+// `lib/data/native/tflite_inference_engine.dart` binds the TFLite **C** API over `dart:ffi`; on
+// Android it dlopens `libtensorflowlite_c.so`, then `libtensorflowlite_jni.so`. Neither is an
+// Android public system library (`/system/etc/public.libraries.txt` does not list them -- the
+// same namespace-isolation wall that blocks `libsqlite.so`), so the library has to be *shipped*.
+//
+// This was found by inspecting the built APKs: they contained no TFLite library at all (no
+// `jniLibs/`, and `pubspec.yaml` no longer depends on `tflite_flutter`, which used to provide
+// it). A finished model dropped into `app/assets/models/` would therefore have failed at
+// `DynamicLibrary.open`, i.e. the whole "drop in the model team's artifact" path was dead.
+//
+// Evidence for this exact artifact (measured, not assumed):
+//   * `com.google.ai.edge.litert:litert:1.4.2` -- LiteRT is what TensorFlow Lite was renamed to,
+//     and it is a **drop-in for the native library only**: the AAR still ships
+//     `jni/<abi>/libtensorflowlite_jni.so` (the very name the Dart binding dlopens) and still
+//     declares `package="org.tensorflow.lite"`. Nothing in this app uses its Java API;
+//     `lib/data/native/tflite_inference_engine.dart` uses the C API over `dart:ffi`.
+//   * measured on the 1.4.2 AAR: **225** `TfLite*` exports (a superset of the 21 the binding
+//     looks up, including `TfLiteTensorType` for the ADR-20 dtype check and `TfLiteVersion`),
+//     `DT_NEEDED` limited to `libc/libdl/liblog/libm`, and minSdk 21 (we require 24).
+//
+// 🚨 WHY NOT `org.tensorflow:tensorflow-lite:2.16.1` ANY MORE (ADR-35):
+// its `libtensorflowlite_jni.so` has ELF `p_align = 4096`. Android 15+ devices may use **16 KB
+// pages**, and a 4 KB-aligned LOAD segment cannot be mapped there, so `dlopen` fails, the model
+// never loads and the app's core feature breaks on exactly the newest phones. Measured on the
+// built APK: `libapp.so`/`libflutter.so` report 65536 while every `libtensorflowlite_jni.so` ABI
+// reported 4096; every 1.4.2 `.so` reports 16384. `tool/check_page_alignment.py` now enforces it.
+//
+// ⚠️ Do not "verify" this with `zipalign -c -p 16`: in build-tools 34 that means 16-**byte**
+// alignment of every entry and has nothing to do with page size (see the checker's docstring).
+//
+// ⚠️ Version coordination: the exporter side pins `tensorflow>=2.16` (2.21 in practice) while the
+// shippable Android runtime is LiteRT 1.4.2. A model converted by a much newer converter can
+// require a runtime newer than the device has, which surfaces as a load failure with no obvious
+// cause. `TfLiteVersion` is bound so that mismatch is visible on the device (see the engine).
+dependencies {
+    implementation 'com.google.ai.edge.litert:litert:1.4.2'
+}
+
+// SPEC-C-04 section 6: a **release** build without `key.properties` must fail loudly rather than
+// silently ship a debug-signed artifact. Enforced here -- at task-graph resolution, the earliest
+// point where the requested variant is known -- instead of inside the `release { }` block, whose
+// body Gradle evaluates for debug builds too.
+gradle.taskGraph.whenReady { graph ->
+    def wantsRelease = graph.allTasks.any { t ->
+        t.project == project && t.name.toLowerCase().contains("release")
+    }
+    if (wantsRelease && !hasReleaseKeystore) {
+        throw new GradleException(
+            "SPEC-C-04: app/android/key.properties is required for a release build. " +
+            "Copy key.properties.example, point storeFile at the keystore kept " +
+            "OUTSIDE the repository, and never commit it.")
+    }
+}

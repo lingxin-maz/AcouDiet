@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.1",
+  "sample_rate": 16000,
+  "channels": 1,
+  "pcm_format": "PCM_16BIT",
+  "waveform_samples": 65536,
+  "patch_seconds": 4.096,
+  "inference_hop_seconds": 0.5,
+  "pre_emphasis": 0.97,
+  "pre_emphasis_previous_sample": "continuous_stream_previous_raw_sample_or_zero_at_source_start",
+  "n_fft": 1024,
+  "win_length": 1024,
+  "hop_length": 512,
+  "window": "hann",
+  "window_periodic": true,
+  "stft_center": true,
+  "stft_pad_mode": "constant",
+  "power": 2.0,
+  "n_mels": 128,
+  "fmin": 20.0,
+  "fmax": 8000.0,
+  "mel_htk": false,
+  "mel_norm": "slaney",
+  "power_to_db_ref": "patch_max",
+  "power_to_db_amin": 1e-10,
+  "top_db": 80.0,
+  "raw_mel_frames": 129,
+  "patch_frames": 128,
+  "frame_selection": {
+    "strategy": "drop_tail",
+    "start_inclusive": 0,
+    "end_exclusive": 128
+  },
+  "normalization": {
+    "type": "per_patch_minmax",
+    "stage": "after_db_and_frame_selection",
+    "epsilon": 1e-8,
+    "output_min": 0.0,
+    "output_max": 1.0
+  },
+  "operation_order": [
+    "mono",
+    "resample_16000hz",
+    "pre_emphasis",
+    "crop_or_pad_65536_samples",
+    "mel_power_spectrogram_centered",
+    "power_to_db_patch_max",
+    "drop_tail_to_128_frames",
+    "per_patch_minmax",
+    "append_channel_axis"
+  ],
+  "model_input": {
+    "name": "mel_input",
+    "shape": [1, 128, 128, 1],
+    "layout": "NHWC",
+    "height_axis": "mel_frequency_low_to_high",
+    "width_axis": "time_early_to_late",
+    "channel_axis": "single_mel_channel",
+    "dtype": "float32",
+    "range": [0.0, 1.0]
+  },
+  "model_internal_preprocessing": {
+    "rescaling_scale": 2.0,
+    "rescaling_offset": -1.0,
+    "channel_adapter": "concatenate_input_three_times"
+  }
+}

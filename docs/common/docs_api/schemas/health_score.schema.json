@@ -1,0 +1,837 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://acoudiet.local/schemas/health_score.schema.json",
+  "title": "AcouDiet 域服务 JSON 契约（HealthScore / DimensionScore / WeeklyReport / TrendPoint / Advice）",
+  "description": "本文件以「子模式注册表」的形式同时定义分析平面（L4）输出的五种结构：HealthScore、DimensionScore、WeeklyReport、TrendPoint、Advice。使用方法：校验某一个具体类型的实例时，取下表对应子模式作为根模式（例如校验一个 HealthScore 实例：Draft7Validator(schema['properties']['healthScore'])）；校验本文件定义的完整往返测试载荷（PLAN-A-01 / PLAN-A-03 的 fixture）时，直接把本文件当根模式，五个键必须同时出现。签名权威：HealthScore / DimensionScore / WeeklyReport / Advice 见 docs/frontend/docs_api/API-04_域服务接口_评分_知识库_报告.md 第 3~5 节；TrendPoint 的签名权威在 docs/backend/docs_api/API-03_数据访问层接口.md 第 5 节（L3 不填充 totalScore，由 L4 合并）。评分公式与权重一律引用 SPEC-00 §3.7（FF-22），本 schema 不冻结任何公式数值；评级分档阈值**已拍板**（ADR-P2；SPEC-00 §3.7 FF-22b）：总分 ≥80 → 良好、60–79 → 一般、<60 → 需改善。机器可读值见 feature_config.health_score_formula.grade_thresholds。可复现性硬约束：同一数据库 + 同一时间范围必须逐字段相等，禁止任何由「当前时间」或随机性引入的字段（API-05 §6.1）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "healthScore",
+    "dimensionScore",
+    "advice",
+    "trendPoint",
+    "weeklyReport"
+  ],
+  "properties": {
+    "healthScore": {
+      "type": "object",
+      "description": "健康评分（HealthScore）；四维满分与公式见 FF-22。totalScore 必须等于四维各自 round 后之和（不是先求和再取整，API-05 §6.2）",
+      "additionalProperties": false,
+      "required": [
+        "totalScore",
+        "grade",
+        "regularity",
+        "structure",
+        "snack",
+        "speed",
+        "deltaVsYesterday"
+      ],
+      "properties": {
+        "totalScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "总分，四维各自 round 后求和；满分与端点见 FF-22"
+        },
+        "grade": {
+          "type": "string",
+          "enum": [
+            "良好",
+            "一般",
+            "需改善"
+          ],
+          "description": "评级三值枚举（FF-22）；不得新增第四值。分档阈值已拍板（ADR-P2；SPEC-00 §3.7 FF-22b）：≥80 → 良好、60–79 → 一般、<60 → 需改善"
+        },
+        "regularity": {
+          "type": "object",
+          "description": "饮食规律性维度分（DimensionScore）；label 固定为「饮食规律性」",
+          "additionalProperties": false,
+          "required": [
+            "score",
+            "max",
+            "label",
+            "evidence"
+          ],
+          "properties": {
+            "score": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "该维得分 [0, max]，由 FF-22 公式计算后 round"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "该维满分，取自 FF-22 权重（feature_config.health_score_weights.regularity）"
+            },
+            "label": {
+              "type": "string",
+              "enum": [
+                "饮食规律性"
+              ],
+              "description": "中文维度名，四维固定"
+            },
+            "evidence": {
+              "type": "object",
+              "description": "下钻依据；键集按维度冻结（API-04 §3 evidence 权威键表）",
+              "additionalProperties": false,
+              "required": [
+                "sigmaMinutes",
+                "mealTimeSamples",
+                "windowDays"
+              ],
+              "properties": {
+                "sigmaMinutes": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "description": "等于 WeekSummary.mealTimeStdDevMinutes；口径权威在 API-03 §5.3，无有效餐类为 null"
+                },
+                "mealTimeSamples": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "参与标准差计算的有效餐次样本数"
+                },
+                "windowDays": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "统计窗口天数"
+                }
+              }
+            }
+          }
+        },
+        "structure": {
+          "type": "object",
+          "description": "食物结构维度分（DimensionScore）；label 固定为「食物结构」",
+          "additionalProperties": false,
+          "required": [
+            "score",
+            "max",
+            "label",
+            "evidence"
+          ],
+          "properties": {
+            "score": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "该维得分 [0, max]，由 FF-22 公式计算后 round"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "该维满分，取自 FF-22 权重"
+            },
+            "label": {
+              "type": "string",
+              "enum": [
+                "食物结构"
+              ],
+              "description": "中文维度名，四维固定"
+            },
+            "evidence": {
+              "type": "object",
+              "description": "下钻依据；键集按维度冻结（API-04 §3）",
+              "additionalProperties": false,
+              "required": [
+                "healthyRatio",
+                "healthyCount",
+                "totalCount"
+              ],
+              "properties": {
+                "healthyRatio": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "FF-22 指定类别（apple + carrot + bread）记录占比，[0,1]；分母为 0 时为 0.0"
+                },
+                "healthyCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "分子原始计数"
+                },
+                "totalCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "分母原始计数"
+                }
+              }
+            }
+          }
+        },
+        "snack": {
+          "type": "object",
+          "description": "零食控制维度分（DimensionScore）；label 固定为「零食控制」；n 为本周零食次数（FF-22）",
+          "additionalProperties": false,
+          "required": [
+            "score",
+            "max",
+            "label",
+            "evidence"
+          ],
+          "properties": {
+            "score": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "该维得分 [0, max]，由 FF-22 公式计算后 round"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "该维满分，取自 FF-22 权重"
+            },
+            "label": {
+              "type": "string",
+              "enum": [
+                "零食控制"
+              ],
+              "description": "中文维度名，四维固定"
+            },
+            "evidence": {
+              "type": "object",
+              "description": "下钻依据；键集按维度冻结（API-04 §3）",
+              "additionalProperties": false,
+              "required": [
+                "snackCount",
+                "lateNightCount"
+              ],
+              "properties": {
+                "snackCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "本周零食/加餐次数，等于 WeekSummary.snackCount"
+                },
+                "lateNightCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "本周夜间时段记录数，等于 WeekSummary.lateNightCount"
+                }
+              }
+            }
+          }
+        },
+        "speed": {
+          "type": "object",
+          "description": "进食速度维度分（DimensionScore）；label 固定为「进食速度」",
+          "additionalProperties": false,
+          "required": [
+            "score",
+            "max",
+            "label",
+            "evidence"
+          ],
+          "properties": {
+            "score": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "该维得分 [0, max]，由 FF-22 公式计算后 round"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "该维满分，取自 FF-22 权重"
+            },
+            "label": {
+              "type": "string",
+              "enum": [
+                "进食速度"
+              ],
+              "description": "中文维度名，四维固定"
+            },
+            "evidence": {
+              "type": "object",
+              "description": "下钻依据；键集按维度冻结（API-04 §3）",
+              "additionalProperties": false,
+              "required": [
+                "avgChewIntervalSeconds",
+                "sampleCount",
+                "missingMetricsCount"
+              ],
+              "properties": {
+                "avgChewIntervalSeconds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0,
+                  "description": "窗口内加权平均咀嚼间隔秒；无有效指标为 null"
+                },
+                "sampleCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "参与平均的记录数"
+                },
+                "missingMetricsCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "行为指标为占位行（全 null）的记录数；必须暴露以便解释分母"
+                }
+              }
+            }
+          }
+        },
+        "deltaVsYesterday": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "今日总分减昨日总分；昨日无有效数据时为 null（不得用 0 代替，0 表示确实持平）"
+        }
+      }
+    },
+    "dimensionScore": {
+      "type": "object",
+      "description": "单个维度分的通用形态（DimensionScore）；四个维度共用同一类。evidence 的键随维度而异，故此处列出四维全部合法键而不设 required，具体键集约束见 API-04 §3 evidence 权威键表；校验某一具体维度时应优先使用 healthScore 内的对应子模式",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "max",
+        "label",
+        "evidence"
+      ],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "该维得分 [0, max]，round 后为整数"
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "该维满分，取自 FF-22 权重"
+        },
+        "label": {
+          "type": "string",
+          "enum": [
+            "饮食规律性",
+            "食物结构",
+            "零食控制",
+            "进食速度"
+          ],
+          "description": "中文维度名，四维固定；与 U-01 / U-04 的雷达轴一致"
+        },
+        "evidence": {
+          "type": "object",
+          "description": "下钻依据；四维合法键的并集",
+          "additionalProperties": false,
+          "properties": {
+            "sigmaMinutes": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "regularity 专用：mealTimeStdDevMinutes"
+            },
+            "mealTimeSamples": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "regularity 专用：有效餐次样本数"
+            },
+            "windowDays": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "regularity 专用：统计窗口天数"
+            },
+            "healthyRatio": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "structure 专用：健康类别占比"
+            },
+            "healthyCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "structure 专用：分子计数"
+            },
+            "totalCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "structure 专用：分母计数"
+            },
+            "snackCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "snack 专用：本周零食次数"
+            },
+            "lateNightCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "snack 专用：本周夜间记录数"
+            },
+            "avgChewIntervalSeconds": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "speed 专用：加权平均咀嚼间隔秒"
+            },
+            "sampleCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "speed 专用：参与平均的记录数"
+            },
+            "missingMetricsCount": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "speed 专用：占位指标记录数"
+            }
+          }
+        }
+      }
+    },
+    "advice": {
+      "type": "object",
+      "description": "单条健康建议（Advice）；A-02 规则引擎输出",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "text",
+        "priority"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "enum": [
+            "regularity",
+            "structure",
+            "snack",
+            "speed",
+            "general"
+          ],
+          "description": "维度键；前四值与 HealthScore 的四维同名，general 用于免责声明项"
+        },
+        "text": {
+          "type": "string",
+          "description": "建议正文（中文）；不得含 FF-25 禁用表述（准确识别、零操作、完全无感、可以测热量等），不得含诊断或治疗语句"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "排序权重，数值越小越靠前；dimension=general 的免责声明项取全表最大值（排最后）"
+        }
+      }
+    },
+    "trendPoint": {
+      "type": "object",
+      "description": "趋势序列中的单点（TrendPoint）；签名权威在 API-03 §5。L3 不填充 totalScore，由 L4 的 ReportService 合并",
+      "additionalProperties": false,
+      "required": [
+        "date",
+        "estimatedKcal",
+        "totalScore"
+      ],
+      "properties": {
+        "date": {
+          "type": "string",
+          "description": "设备本地时区日历日，格式 yyyy-MM-dd；禁止使用 ISO 时间串（API-00 §3.2）"
+        },
+        "estimatedKcal": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "该日估算热量 kcal；无记录为 null（不写 0）。估算值展示时必须与标准份量描述同屏并标注「估算」（FF-25）"
+        },
+        "totalScore": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "该日健康总分；不可计算时为 null"
+        }
+      }
+    },
+    "weeklyReport": {
+      "type": "object",
+      "description": "周报（WeeklyReport）；A-03 报告服务输出，字段语义见 API-04 §5",
+      "additionalProperties": false,
+      "required": [
+        "range",
+        "summaryText",
+        "advices",
+        "score",
+        "deltas"
+      ],
+      "properties": {
+        "range": {
+          "type": "object",
+          "description": "统计窗口（DateRange，见 API-03 §4）；左闭右开 [startMs, endMs)。跨日换算按设备本地时区由 L4 调用方完成",
+          "additionalProperties": false,
+          "required": [
+            "startMs",
+            "endMs"
+          ],
+          "properties": {
+            "startMs": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "窗口起点，epoch 毫秒（UTC），闭区间端"
+            },
+            "endMs": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "窗口终点，epoch 毫秒（UTC），开区间端"
+            }
+          }
+        },
+        "summaryText": {
+          "type": "string",
+          "description": "一句中文小结（不超过 60 字）；这是域层唯一允许产出的文案字段；数据不足时写固定提示语，不得编造数字"
+        },
+        "advices": {
+          "type": "array",
+          "description": "建议列表；必须恰好包含一条 dimension=general 的免责声明项且其 priority 最大（排最后），不因数据不足而省略",
+          "items": {
+            "type": "object",
+            "description": "单条健康建议（Advice）",
+            "additionalProperties": false,
+            "required": [
+              "dimension",
+              "text",
+              "priority"
+            ],
+            "properties": {
+              "dimension": {
+                "type": "string",
+                "enum": [
+                  "regularity",
+                  "structure",
+                  "snack",
+                  "speed",
+                  "general"
+                ],
+                "description": "维度键；general 为免责声明项"
+              },
+              "text": {
+                "type": "string",
+                "description": "建议正文（中文）；不得含 FF-25 禁用表述"
+              },
+              "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "排序权重，数值越小越靠前"
+              }
+            }
+          }
+        },
+        "score": {
+          "type": "object",
+          "description": "周报内嵌的健康评分；与 properties.healthScore 结构完全一致，不得在报告层改写任何分数",
+          "additionalProperties": false,
+          "required": [
+            "totalScore",
+            "grade",
+            "regularity",
+            "structure",
+            "snack",
+            "speed",
+            "deltaVsYesterday"
+          ],
+          "properties": {
+            "totalScore": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "总分，四维 round 后求和（FF-22）"
+            },
+            "grade": {
+              "type": "string",
+              "enum": [
+                "良好",
+                "一般",
+                "需改善"
+              ],
+              "description": "评级三值枚举（FF-22）"
+            },
+            "regularity": {
+              "type": "object",
+              "description": "饮食规律性维度分",
+              "additionalProperties": false,
+              "required": [
+                "score",
+                "max",
+                "label",
+                "evidence"
+              ],
+              "properties": {
+                "score": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "该维得分 [0, max]"
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "该维满分（FF-22）"
+                },
+                "label": {
+                  "type": "string",
+                  "enum": [
+                    "饮食规律性"
+                  ],
+                  "description": "中文维度名固定"
+                },
+                "evidence": {
+                  "type": "object",
+                  "description": "下钻依据（API-04 §3）",
+                  "additionalProperties": false,
+                  "required": [
+                    "sigmaMinutes",
+                    "mealTimeSamples",
+                    "windowDays"
+                  ],
+                  "properties": {
+                    "sigmaMinutes": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "description": "mealTimeStdDevMinutes（API-03 §5.3）"
+                    },
+                    "mealTimeSamples": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "有效餐次样本数"
+                    },
+                    "windowDays": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "统计窗口天数"
+                    }
+                  }
+                }
+              }
+            },
+            "structure": {
+              "type": "object",
+              "description": "食物结构维度分",
+              "additionalProperties": false,
+              "required": [
+                "score",
+                "max",
+                "label",
+                "evidence"
+              ],
+              "properties": {
+                "score": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "该维得分 [0, max]"
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "该维满分（FF-22）"
+                },
+                "label": {
+                  "type": "string",
+                  "enum": [
+                    "食物结构"
+                  ],
+                  "description": "中文维度名固定"
+                },
+                "evidence": {
+                  "type": "object",
+                  "description": "下钻依据（API-04 §3）",
+                  "additionalProperties": false,
+                  "required": [
+                    "healthyRatio",
+                    "healthyCount",
+                    "totalCount"
+                  ],
+                  "properties": {
+                    "healthyRatio": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1,
+                      "description": "健康类别占比 [0,1]"
+                    },
+                    "healthyCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "分子计数"
+                    },
+                    "totalCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "分母计数"
+                    }
+                  }
+                }
+              }
+            },
+            "snack": {
+              "type": "object",
+              "description": "零食控制维度分",
+              "additionalProperties": false,
+              "required": [
+                "score",
+                "max",
+                "label",
+                "evidence"
+              ],
+              "properties": {
+                "score": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "该维得分 [0, max]"
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "该维满分（FF-22）"
+                },
+                "label": {
+                  "type": "string",
+                  "enum": [
+                    "零食控制"
+                  ],
+                  "description": "中文维度名固定"
+                },
+                "evidence": {
+                  "type": "object",
+                  "description": "下钻依据（API-04 §3）",
+                  "additionalProperties": false,
+                  "required": [
+                    "snackCount",
+                    "lateNightCount"
+                  ],
+                  "properties": {
+                    "snackCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "本周零食次数"
+                    },
+                    "lateNightCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "本周夜间记录数"
+                    }
+                  }
+                }
+              }
+            },
+            "speed": {
+              "type": "object",
+              "description": "进食速度维度分",
+              "additionalProperties": false,
+              "required": [
+                "score",
+                "max",
+                "label",
+                "evidence"
+              ],
+              "properties": {
+                "score": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "该维得分 [0, max]"
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "该维满分（FF-22）"
+                },
+                "label": {
+                  "type": "string",
+                  "enum": [
+                    "进食速度"
+                  ],
+                  "description": "中文维度名固定"
+                },
+                "evidence": {
+                  "type": "object",
+                  "description": "下钻依据（API-04 §3）",
+                  "additionalProperties": false,
+                  "required": [
+                    "avgChewIntervalSeconds",
+                    "sampleCount",
+                    "missingMetricsCount"
+                  ],
+                  "properties": {
+                    "avgChewIntervalSeconds": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0,
+                      "description": "加权平均咀嚼间隔秒"
+                    },
+                    "sampleCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "参与平均的记录数"
+                    },
+                    "missingMetricsCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "占位指标记录数"
+                    }
+                  }
+                }
+              }
+            },
+            "deltaVsYesterday": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "description": "今日总分减昨日总分；昨日无有效数据为 null"
+            }
+          }
+        },
+        "deltas": {
+          "type": "object",
+          "description": "环比差值（本期减上一等长窗口），七个键必须齐全；无对比基准时值为 0（数值型，不是 null）。这是差值不是比率",
+          "additionalProperties": false,
+          "required": [
+            "totalScore",
+            "regularity",
+            "structure",
+            "snack",
+            "speed",
+            "recordCount",
+            "estimatedKcal"
+          ],
+          "properties": {
+            "totalScore": {
+              "type": "number",
+              "description": "总分环比差值"
+            },
+            "regularity": {
+              "type": "number",
+              "description": "饮食规律性维度分环比差值"
+            },
+            "structure": {
+              "type": "number",
+              "description": "食物结构维度分环比差值"
+            },
+            "snack": {
+              "type": "number",
+              "description": "零食控制维度分环比差值"
+            },
+            "speed": {
+              "type": "number",
+              "description": "进食速度维度分环比差值"
+            },
+            "recordCount": {
+              "type": "number",
+              "description": "记录条数环比差值"
+            },
+            "estimatedKcal": {
+              "type": "number",
+              "description": "估算热量环比差值 kcal"
+            }
+          }
+        }
+      }
+    }
+  }
+}

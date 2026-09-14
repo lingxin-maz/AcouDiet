@@ -1,0 +1,71 @@
+# Repository root: D:\Desktop\Food  -- the project's real root, not `AcouDiet/`.
+#
+# WHY THIS FILE IS THE MOST IMPORTANT ONE IN THE REPO (ADR-36)
+# ------------------------------------------------------------
+# This project had **no version control at all** until ADR-36, and its own ADR log records at least
+# two irreversible losses caused by that -- e.g. "旧包已被 Copy-Item 覆盖，本仓不是 git 仓库，
+# 取不回旧字节", and ADR-34's Qwen removal had to be hand-archived before anything could be deleted.
+#
+# The reason nobody had committed is visible below: the tree carries ~6 GB of build output and
+# vendored toolchains, and the *authoritative* material is spread across three sibling directories
+# (`shared/` = the SSOT, `docs/` = the frozen SPEC tree + the ADR log, `AcouDiet/` = the code).
+# A repo rooted at `AcouDiet/` alone would not version the ADR log or `shared/feature_config.json`,
+# i.e. it would not version the two things this project treats as its constitution.
+#
+# Ignoring the heavy directories below makes the real sources (a few MB) committable.
+
+# ---- Toolchains (outside the deliverable on purpose) -------------------------------------
+_toolchain/
+AcouDiet/_toolchain/
+*.gguf
+
+# ---- Build output ------------------------------------------------------------------------
+AcouDiet/app/build/
+AcouDiet/app/.dart_tool/
+AcouDiet/app/.flutter-plugins
+AcouDiet/app/.flutter-plugins-dependencies
+AcouDiet/app/.packages
+AcouDiet/build/
+AcouDiet/_build/
+AcouDiet/ai/data/raw/
+AcouDiet/ai/data/augmented/
+AcouDiet/ai/data/parity_out/
+
+# ---- Release artifacts -------------------------------------------------------------------
+# APKs are 60-600 MB and reproducible from source + the model card; `dist/*.sha256` plus the
+# release docs record what was shipped and what it hashed to. See ADR-36 for the honest limitation
+# of this choice: a *rebuilt* APK still overwrites its predecessor, so the hash ledger in
+# `docs/demo/PHONE_INSTALL.md` is what preserves "which bytes were ever released".
+AcouDiet/dist/*.apk
+AcouDiet/dist/*.apk.sha256
+
+# ---- Android / Gradle / signing ----------------------------------------------------------
+AcouDiet/app/android/.gradle/
+AcouDiet/app/android/local.properties
+AcouDiet/app/android/key.properties
+AcouDiet/app/android/app/debug/
+AcouDiet/app/android/app/profile/
+AcouDiet/app/android/app/release/
+*.jks
+*.keystore
+
+# ---- Python ------------------------------------------------------------------------------
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# ---- Large binaries that are inputs, not source ------------------------------------------
+*.zip
+*.docx
+# Training/inference checkpoints: 511 MB and 31 MB here, and the on-device language model they
+# belonged to was removed in ADR-34. `*.tflite` files are deliberately NOT ignored -- they are
+# the shipped artifact (4 MB) and committing them is what makes a rebuild reproducible.
+*.safetensors
+tokenizer.json
+
+# ---- Editors / OS ------------------------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+Thumbs.db
+desktop.ini

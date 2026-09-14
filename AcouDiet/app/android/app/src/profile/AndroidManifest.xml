@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PROFILE-ONLY manifest overlay — same reasoning as `src/debug/AndroidManifest.xml`:
+  INTERNET exists so the observatory/VM service can attach during profiling. The release
+  manifest (`src/main/AndroidManifest.xml`) declares RECORD_AUDIO only, and
+  `app/build.gradle` fails the release build if INTERNET ever appears in the merged release
+  manifest. FF-24 items 4/5 are verified on `app-release.apk`.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

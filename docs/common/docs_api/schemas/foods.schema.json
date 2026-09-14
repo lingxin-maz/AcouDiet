@@ -1,0 +1,624 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://acoudiet.local/schemas/foods.schema.json",
+  "title": "AcouDiet app/assets/foods.json（6 类食物知识库，P-08）",
+  "description": "食物知识库的 JSON Schema（draft-07）。顶层键必须恰好是 feature_config.class_labels 的 6 个类别（FF-19），additionalProperties:false 即为结构性防线：储备类别 nuts（坚果）不得进入 v1.0（noodles 已于 ADR-19 转为正式类别），6 类之外的食物命名（全麦面包、番茄、鸡翅等）也不得出现。字段到 Dart 类 FoodInfo 的映射与消费语义见 docs/frontend/docs_api/API-04_域服务接口_评分_知识库_报告.md 第 2.1 节（FoodInfo / FoodKnowledgeBase 的签名权威在 docs/backend/docs_api/API-02_推理与聚合引擎接口.md 第 6 节）。两条文案硬约束：① portionKcal 禁止孤立出现，必须与 portionDesc 同屏并带「估算」字样；② 营养素与热量只能表述为「知识库 + 标准份量的估算」，不得声称测量热量或营养素（FF-25）。本文件不落库：知识库内容仅在渲染时查表，不写入 SQLite（API-03 §2.4 不落库字段）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "chips",
+    "cabbage",
+    "gummies",
+    "noodles",
+    "carrot",
+    "drink"
+  ],
+  "properties": {
+    "chips": {
+      "type": "object",
+      "description": "类别 chips（薯片，FF-19）的知识库条目（含 ADR-23 的用量模型：unit / standardAmount / amountPerSecond / minAmount / maxAmount，使克/毫升与热量按本次进食时长推算而不是固定标准份量）",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "zhName",
+        "icon",
+        "attribute",
+        "category",
+        "portionDesc",
+        "portionKcal",
+        "maxAmount",
+        "minAmount",
+        "amountPerSecond",
+        "standardAmount",
+        "unit",
+        "nutritionTags",
+        "riskNote"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "chips"
+          ],
+          "description": "类别英文标签，必须与所在键名逐字相等（加载器断言）；映射到 FoodInfo.label"
+        },
+        "zhName": {
+          "type": "string",
+          "enum": [
+            "薯片"
+          ],
+          "description": "中文名，必须与 FF-19 逐字一致；映射到 FoodInfo.zhName"
+        },
+        "icon": {
+          "type": "string",
+          "description": "图标文件名（assets/icons/ 下）；仅 UI 使用，不进 FoodInfo"
+        },
+        "attribute": {
+          "type": "string",
+          "enum": [
+            "脆性高加工零食"
+          ],
+          "description": "知识库属性，必须与 FF-19 该行的「知识库属性」列逐字一致；映射到 FoodInfo.attribute，并在写入记录时快照进 diet_record.attribute"
+        },
+        "category": {
+          "type": "string",
+          "description": "展示用细分类别（如「高加工零食」）；映射到 FoodInfo.category，取值口径由 SPEC-P-08 冻结"
+        },
+        "portionDesc": {
+          "type": "string",
+          "description": "标准份量描述（如「1 小包（约 30g）」）；映射到 FoodInfo.portionDesc。是 portionKcal 唯一合法的搭配说明，二者必须同屏展示"
+        },
+        "portionKcal": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "标准份量对应的估算热量 kcal；映射到 FoodInfo.portionKcal。禁止孤立展示（FF-25：营养与热量来自知识库 + 标准份量估算，UI 必须标注「估算」）"
+        },
+        "nutritionTags": {
+          "type": "array",
+          "description": "营养标签列表（如「高油」「高盐」）；映射到 FoodInfo.nutritionTags。来源是知识库，不是模型输出",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "description": "单个营养标签"
+          }
+        },
+        "riskNote": {
+          "type": "string",
+          "description": "风险/建议提示（如「高加工零食，建议控制频率」）；映射到 FoodInfo.riskNote，供 A-02 规则引擎引用"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "g"
+          ],
+          "description": "量的单位：g（固体）或 ml（液体）。ADR-23：单位是知识库事实，不得由类别名推断；映射到 FoodInfo.unit，PortionEstimator 据此选择取整步长"
+        },
+        "standardAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "portionDesc / portionKcal 所描述的量（单位见 unit）；映射到 FoodInfo.standardAmount，是热量按量等比缩放的分母"
+        },
+        "amountPerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "整段进食的平均摄入速率（单位/秒，含进食间停顿）；映射到 FoodInfo.amountPerSecond。ADR-23：估算量 = clamp(速率 × 本次时长)。该值是工程估计（标准份量 ÷ 一次典型进食时长），不是营养学测量值"
+        },
+        "minAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理下限（单位见 unit）；映射到 FoodInfo.minAmount，用于夹住短时外推。必须满足 0 < minAmount <= standardAmount"
+        },
+        "maxAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理上限（单位见 unit）；映射到 FoodInfo.maxAmount，用于夹住长时外推（会话忘停不会算出五公斤的午饭）。必须满足 standardAmount <= maxAmount"
+        }
+      }
+    },
+    "cabbage": {
+      "type": "object",
+      "description": "类别 cabbage（卷心菜，FF-19）的知识库条目（含 ADR-23 的用量模型：unit / standardAmount / amountPerSecond / minAmount / maxAmount，使克/毫升与热量按本次进食时长推算而不是固定标准份量）",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "zhName",
+        "icon",
+        "attribute",
+        "category",
+        "portionDesc",
+        "portionKcal",
+        "maxAmount",
+        "minAmount",
+        "amountPerSecond",
+        "standardAmount",
+        "unit",
+        "nutritionTags",
+        "riskNote"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "cabbage"
+          ],
+          "description": "类别英文标签，必须与键名逐字相等；映射到 FoodInfo.label"
+        },
+        "zhName": {
+          "type": "string",
+          "enum": [
+            "卷心菜"
+          ],
+          "description": "中文名，必须与 FF-19 逐字一致；映射到 FoodInfo.zhName"
+        },
+        "icon": {
+          "type": "string",
+          "description": "图标文件名；仅 UI 使用"
+        },
+        "attribute": {
+          "type": "string",
+          "enum": [
+            "脆爽蔬菜"
+          ],
+          "description": "知识库属性，与 FF-19 逐字一致；映射到 FoodInfo.attribute"
+        },
+        "category": {
+          "type": "string",
+          "description": "展示用细分类别（如「水果」）；映射到 FoodInfo.category"
+        },
+        "portionDesc": {
+          "type": "string",
+          "description": "标准份量描述（如「1 个（约 180g）」）；映射到 FoodInfo.portionDesc"
+        },
+        "portionKcal": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "标准份量对应的估算热量 kcal；映射到 FoodInfo.portionKcal，禁止孤立展示"
+        },
+        "nutritionTags": {
+          "type": "array",
+          "description": "营养标签列表（如「膳食纤维」「维生素C」）；映射到 FoodInfo.nutritionTags",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "description": "单个营养标签"
+          }
+        },
+        "riskNote": {
+          "type": "string",
+          "description": "风险/建议提示；映射到 FoodInfo.riskNote"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "g"
+          ],
+          "description": "量的单位：g（固体）或 ml（液体）。ADR-23：单位是知识库事实，不得由类别名推断；映射到 FoodInfo.unit，PortionEstimator 据此选择取整步长"
+        },
+        "standardAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "portionDesc / portionKcal 所描述的量（单位见 unit）；映射到 FoodInfo.standardAmount，是热量按量等比缩放的分母"
+        },
+        "amountPerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "整段进食的平均摄入速率（单位/秒，含进食间停顿）；映射到 FoodInfo.amountPerSecond。ADR-23：估算量 = clamp(速率 × 本次时长)。该值是工程估计（标准份量 ÷ 一次典型进食时长），不是营养学测量值"
+        },
+        "minAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理下限（单位见 unit）；映射到 FoodInfo.minAmount，用于夹住短时外推。必须满足 0 < minAmount <= standardAmount"
+        },
+        "maxAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理上限（单位见 unit）；映射到 FoodInfo.maxAmount，用于夹住长时外推（会话忘停不会算出五公斤的午饭）。必须满足 standardAmount <= maxAmount"
+        }
+      }
+    },
+    "gummies": {
+      "type": "object",
+      "description": "类别 gummies（软糖，FF-19）的知识库条目（含 ADR-23 的用量模型：unit / standardAmount / amountPerSecond / minAmount / maxAmount，使克/毫升与热量按本次进食时长推算而不是固定标准份量）",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "zhName",
+        "icon",
+        "attribute",
+        "category",
+        "portionDesc",
+        "portionKcal",
+        "maxAmount",
+        "minAmount",
+        "amountPerSecond",
+        "standardAmount",
+        "unit",
+        "nutritionTags",
+        "riskNote"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "gummies"
+          ],
+          "description": "类别英文标签，必须与键名逐字相等；映射到 FoodInfo.label"
+        },
+        "zhName": {
+          "type": "string",
+          "enum": [
+            "软糖"
+          ],
+          "description": "中文名，必须与 FF-19 逐字一致；映射到 FoodInfo.zhName"
+        },
+        "icon": {
+          "type": "string",
+          "description": "图标文件名；仅 UI 使用"
+        },
+        "attribute": {
+          "type": "string",
+          "enum": [
+            "黏弹性零食"
+          ],
+          "description": "知识库属性，与 FF-19 逐字一致；映射到 FoodInfo.attribute"
+        },
+        "category": {
+          "type": "string",
+          "description": "展示用细分类别；映射到 FoodInfo.category"
+        },
+        "portionDesc": {
+          "type": "string",
+          "description": "标准份量描述；映射到 FoodInfo.portionDesc，必须与 portionKcal 同屏展示"
+        },
+        "portionKcal": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "标准份量对应的估算热量 kcal；映射到 FoodInfo.portionKcal，禁止孤立展示"
+        },
+        "nutritionTags": {
+          "type": "array",
+          "description": "营养标签列表；映射到 FoodInfo.nutritionTags",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "description": "单个营养标签"
+          }
+        },
+        "riskNote": {
+          "type": "string",
+          "description": "风险/建议提示；映射到 FoodInfo.riskNote"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "g"
+          ],
+          "description": "量的单位：g（固体）或 ml（液体）。ADR-23：单位是知识库事实，不得由类别名推断；映射到 FoodInfo.unit，PortionEstimator 据此选择取整步长"
+        },
+        "standardAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "portionDesc / portionKcal 所描述的量（单位见 unit）；映射到 FoodInfo.standardAmount，是热量按量等比缩放的分母"
+        },
+        "amountPerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "整段进食的平均摄入速率（单位/秒，含进食间停顿）；映射到 FoodInfo.amountPerSecond。ADR-23：估算量 = clamp(速率 × 本次时长)。该值是工程估计（标准份量 ÷ 一次典型进食时长），不是营养学测量值"
+        },
+        "minAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理下限（单位见 unit）；映射到 FoodInfo.minAmount，用于夹住短时外推。必须满足 0 < minAmount <= standardAmount"
+        },
+        "maxAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理上限（单位见 unit）；映射到 FoodInfo.maxAmount，用于夹住长时外推（会话忘停不会算出五公斤的午饭）。必须满足 standardAmount <= maxAmount"
+        }
+      }
+    },
+    "noodles": {
+      "type": "object",
+      "description": "类别 noodles（面条，FF-19）的知识库条目（含 ADR-23 的用量模型：unit / standardAmount / amountPerSecond / minAmount / maxAmount，使克/毫升与热量按本次进食时长推算而不是固定标准份量）",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "zhName",
+        "icon",
+        "attribute",
+        "category",
+        "portionDesc",
+        "portionKcal",
+        "maxAmount",
+        "minAmount",
+        "amountPerSecond",
+        "standardAmount",
+        "unit",
+        "nutritionTags",
+        "riskNote"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "noodles"
+          ],
+          "description": "类别英文标签，必须与键名逐字相等；映射到 FoodInfo.label"
+        },
+        "zhName": {
+          "type": "string",
+          "enum": [
+            "面条"
+          ],
+          "description": "中文名，必须与 FF-19 逐字一致；映射到 FoodInfo.zhName"
+        },
+        "icon": {
+          "type": "string",
+          "description": "图标文件名；仅 UI 使用"
+        },
+        "attribute": {
+          "type": "string",
+          "enum": [
+            "软性主食"
+          ],
+          "description": "知识库属性，与 FF-19 逐字一致；映射到 FoodInfo.attribute"
+        },
+        "category": {
+          "type": "string",
+          "description": "展示用细分类别；映射到 FoodInfo.category"
+        },
+        "portionDesc": {
+          "type": "string",
+          "description": "标准份量描述（如「1 片」）；映射到 FoodInfo.portionDesc，必须与 portionKcal 同屏展示"
+        },
+        "portionKcal": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "标准份量对应的估算热量 kcal；映射到 FoodInfo.portionKcal，禁止孤立展示"
+        },
+        "nutritionTags": {
+          "type": "array",
+          "description": "营养标签列表；映射到 FoodInfo.nutritionTags",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "description": "单个营养标签"
+          }
+        },
+        "riskNote": {
+          "type": "string",
+          "description": "风险/建议提示；映射到 FoodInfo.riskNote"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "g"
+          ],
+          "description": "量的单位：g（固体）或 ml（液体）。ADR-23：单位是知识库事实，不得由类别名推断；映射到 FoodInfo.unit，PortionEstimator 据此选择取整步长"
+        },
+        "standardAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "portionDesc / portionKcal 所描述的量（单位见 unit）；映射到 FoodInfo.standardAmount，是热量按量等比缩放的分母"
+        },
+        "amountPerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "整段进食的平均摄入速率（单位/秒，含进食间停顿）；映射到 FoodInfo.amountPerSecond。ADR-23：估算量 = clamp(速率 × 本次时长)。该值是工程估计（标准份量 ÷ 一次典型进食时长），不是营养学测量值"
+        },
+        "minAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理下限（单位见 unit）；映射到 FoodInfo.minAmount，用于夹住短时外推。必须满足 0 < minAmount <= standardAmount"
+        },
+        "maxAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理上限（单位见 unit）；映射到 FoodInfo.maxAmount，用于夹住长时外推（会话忘停不会算出五公斤的午饭）。必须满足 standardAmount <= maxAmount"
+        }
+      }
+    },
+    "carrot": {
+      "type": "object",
+      "description": "类别 carrot（胡萝卜，FF-19）的知识库条目（含 ADR-23 的用量模型：unit / standardAmount / amountPerSecond / minAmount / maxAmount，使克/毫升与热量按本次进食时长推算而不是固定标准份量）",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "zhName",
+        "icon",
+        "attribute",
+        "category",
+        "portionDesc",
+        "portionKcal",
+        "maxAmount",
+        "minAmount",
+        "amountPerSecond",
+        "standardAmount",
+        "unit",
+        "nutritionTags",
+        "riskNote"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "carrot"
+          ],
+          "description": "类别英文标签，必须与键名逐字相等；映射到 FoodInfo.label"
+        },
+        "zhName": {
+          "type": "string",
+          "enum": [
+            "胡萝卜"
+          ],
+          "description": "中文名，必须与 FF-19 逐字一致；映射到 FoodInfo.zhName"
+        },
+        "icon": {
+          "type": "string",
+          "description": "图标文件名；仅 UI 使用"
+        },
+        "attribute": {
+          "type": "string",
+          "enum": [
+            "脆爽蔬菜"
+          ],
+          "description": "知识库属性，与 FF-19 逐字一致；映射到 FoodInfo.attribute"
+        },
+        "category": {
+          "type": "string",
+          "description": "展示用细分类别；映射到 FoodInfo.category"
+        },
+        "portionDesc": {
+          "type": "string",
+          "description": "标准份量描述；映射到 FoodInfo.portionDesc，必须与 portionKcal 同屏展示"
+        },
+        "portionKcal": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "标准份量对应的估算热量 kcal；映射到 FoodInfo.portionKcal，禁止孤立展示"
+        },
+        "nutritionTags": {
+          "type": "array",
+          "description": "营养标签列表；映射到 FoodInfo.nutritionTags",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "description": "单个营养标签"
+          }
+        },
+        "riskNote": {
+          "type": "string",
+          "description": "风险/建议提示；映射到 FoodInfo.riskNote"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "g"
+          ],
+          "description": "量的单位：g（固体）或 ml（液体）。ADR-23：单位是知识库事实，不得由类别名推断；映射到 FoodInfo.unit，PortionEstimator 据此选择取整步长"
+        },
+        "standardAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "portionDesc / portionKcal 所描述的量（单位见 unit）；映射到 FoodInfo.standardAmount，是热量按量等比缩放的分母"
+        },
+        "amountPerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "整段进食的平均摄入速率（单位/秒，含进食间停顿）；映射到 FoodInfo.amountPerSecond。ADR-23：估算量 = clamp(速率 × 本次时长)。该值是工程估计（标准份量 ÷ 一次典型进食时长），不是营养学测量值"
+        },
+        "minAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理下限（单位见 unit）；映射到 FoodInfo.minAmount，用于夹住短时外推。必须满足 0 < minAmount <= standardAmount"
+        },
+        "maxAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理上限（单位见 unit）；映射到 FoodInfo.maxAmount，用于夹住长时外推（会话忘停不会算出五公斤的午饭）。必须满足 standardAmount <= maxAmount"
+        }
+      }
+    },
+    "drink": {
+      "type": "object",
+      "description": "类别 drink（饮料，FF-19）的知识库条目（含 ADR-23 的用量模型：unit / standardAmount / amountPerSecond / minAmount / maxAmount，使克/毫升与热量按本次进食时长推算而不是固定标准份量）",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "zhName",
+        "icon",
+        "attribute",
+        "category",
+        "portionDesc",
+        "portionKcal",
+        "maxAmount",
+        "minAmount",
+        "amountPerSecond",
+        "standardAmount",
+        "unit",
+        "nutritionTags",
+        "riskNote"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "enum": [
+            "drink"
+          ],
+          "description": "类别英文标签，必须与键名逐字相等；映射到 FoodInfo.label"
+        },
+        "zhName": {
+          "type": "string",
+          "enum": [
+            "饮料"
+          ],
+          "description": "中文名，必须与 FF-19 逐字一致；映射到 FoodInfo.zhName"
+        },
+        "icon": {
+          "type": "string",
+          "description": "图标文件名；仅 UI 使用"
+        },
+        "attribute": {
+          "type": "string",
+          "enum": [
+            "液体"
+          ],
+          "description": "知识库属性，与 FF-19 逐字一致；映射到 FoodInfo.attribute"
+        },
+        "category": {
+          "type": "string",
+          "description": "展示用细分类别；映射到 FoodInfo.category"
+        },
+        "portionDesc": {
+          "type": "string",
+          "description": "标准份量描述；映射到 FoodInfo.portionDesc，必须与 portionKcal 同屏展示"
+        },
+        "portionKcal": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "标准份量对应的估算热量 kcal；映射到 FoodInfo.portionKcal，禁止孤立展示"
+        },
+        "nutritionTags": {
+          "type": "array",
+          "description": "营养标签列表；映射到 FoodInfo.nutritionTags",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "description": "单个营养标签"
+          }
+        },
+        "riskNote": {
+          "type": "string",
+          "description": "风险/建议提示；映射到 FoodInfo.riskNote"
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "ml"
+          ],
+          "description": "量的单位：ml（液体）。ADR-23：该类别是「液体」，既不计入零食次数、也不作为三餐样本进入 σ；映射到 FoodInfo.unit，并驱动 isLiquid"
+        },
+        "standardAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "portionDesc / portionKcal 所描述的量（单位见 unit）；映射到 FoodInfo.standardAmount，是热量按量等比缩放的分母"
+        },
+        "amountPerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "整段进食的平均摄入速率（单位/秒，含进食间停顿）；映射到 FoodInfo.amountPerSecond。ADR-23：估算量 = clamp(速率 × 本次时长)。该值是工程估计（标准份量 ÷ 一次典型进食时长），不是营养学测量值"
+        },
+        "minAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理下限（单位见 unit）；映射到 FoodInfo.minAmount，用于夹住短时外推。必须满足 0 < minAmount <= standardAmount"
+        },
+        "maxAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "一次进食的合理上限（单位见 unit）；映射到 FoodInfo.maxAmount，用于夹住长时外推（会话忘停不会算出五公斤的午饭）。必须满足 standardAmount <= maxAmount"
+        }
+      }
+    }
+  }
+}

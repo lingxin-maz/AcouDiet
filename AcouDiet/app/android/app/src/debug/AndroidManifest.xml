@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG-ONLY manifest overlay.
+
+  INTERNET is declared here (and only here, plus the profile overlay) so that `flutter run`
+  and a profile build (`flutter build apk` with the profile target) can attach the Dart VM
+  service / hot reload. It does NOT reach the release APK:
+
+    * `app/src/main/AndroidManifest.xml` — the release manifest — declares RECORD_AUDIO only;
+    * `app/build.gradle` fails the RELEASE build outright if the merged release manifest
+      contains INTERNET or any permission other than RECORD_AUDIO.
+
+  The audited artefact for FF-24 items 4/5 is `app-release.apk` (`SPEC-C-01` section 7 #1/#2,
+  `aapt dump badging`). Never copy this permission into the main manifest.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

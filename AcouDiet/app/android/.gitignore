@@ -1,0 +1,18 @@
+# Release signing material must NEVER enter the repository (SPEC-C-04 section 1, #2/#3).
+# Verification: `git check-ignore -v app/android/key.properties` must hit, and
+# `git ls-files | findstr /i "key.properties .jks .keystore"` must return nothing.
+key.properties
+*.jks
+*.keystore
+
+# Local toolchain paths
+local.properties
+
+# Gradle / build output
+.gradle/
+build/
+../build/
+
+# IDE
+.idea/
+*.iml

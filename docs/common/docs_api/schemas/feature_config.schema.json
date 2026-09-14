@@ -1,0 +1,1089 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://acoudiet.local/schemas/feature_config.schema.json",
+  "title": "AcouDiet feature_config.json（特征唯一真源，只读）",
+  "description": "shared/feature_config.json 的 JSON Schema。该文件是全项目特征的唯一真源（SSOT），任何实现方只读、不得写入或补默认值；契约与同步规则见 docs/backend/docs_api/API-06_AI训练侧数据契约.md 第 2 节，数值的文字说明见 SPEC-00 第 3 节。数值一律引用 FF 编号，本 schema 只约束结构与枚举，不重复冻结数值。禁止 additionalProperties。✅ n_frames 已由 ADR-21（2026-09-12，Mel 前端 v1.1）修订为 128，STFT 原始帧数 129 另记为 raw_mel_frames（见 SPEC-00 §3.1 与 §3.5、§4 的 _decisions.mel_frontend_v1_1）。~~ADR-P1 曾冻结为 129（2026-09-10）~~ —— 交付制品的输入张量实测为 float32[1,128,128,1]，129 帧的 Mel（66048 字节）根本喂不进去，旧值保留在 _decisions.n_frames 中以便审计。同步范围：本文件的 n_frames/raw_mel_frames/input_shape、model_card.json 的 nFrames、Kotlin MelFrontend 常量、Dart 常量；改动仍须重跑 SPEC-T-08 对齐测试。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "_comment",
+    "_comment_2",
+    "_comment_3",
+    "_comment_4",
+    "project",
+    "sample_rate",
+    "channels",
+    "bit_depth",
+    "preemphasis",
+    "preemphasis_boundary",
+    "window",
+    "n_fft",
+    "win_length",
+    "hop_length",
+    "pad_mode",
+    "n_mels",
+    "mel_htk",
+    "mel_norm",
+    "fmin",
+    "fmax",
+    "power",
+    "compression",
+    "power_to_db_ref",
+    "power_to_db_amin",
+    "top_db",
+    "normalization",
+    "normalization_epsilon",
+    "normalization_output_min",
+    "normalization_output_max",
+    "loudness_normalization",
+    "target_lufs",
+    "patch_samples",
+    "patch_seconds",
+    "center",
+    "raw_mel_frames",
+    "n_frames",
+    "frame_selection",
+    "inference_hop_seconds",
+    "operation_order",
+    "input_shape",
+    "num_classes",
+    "class_labels",
+    "model_internal_preprocessing",
+    "_decisions",
+    "behavior",
+    "voting",
+    "meal_windows",
+    "health_score_weights",
+    "health_score_formula"
+  ],
+  "properties": {
+    "_comment": {
+      "type": "string",
+      "description": "文件用途说明（英文），机器可读真源的自述"
+    },
+    "_comment_2": {
+      "type": "string",
+      "description": "变更传播提醒：任何改动必须按 SPEC-C-03 §7 的变更传播单（14 项）镜像到 AI 侧与 App 侧"
+    },
+    "_comment_3": {
+      "type": "string",
+      "description": "冻结状态声明：全部数值曾于 2026-09-10 冻结，2026-09-12 由 ADR-21（Mel 前端 v1.1）修订；两条记录都在 _decisions 块内"
+    },
+    "_comment_4": {
+      "type": "string",
+      "description": "ADR-21 修订说明：preemphasis_boundary / power_to_db_ref / normalization / n_frames / input_shape 已就地修订，被取代的旧值保留在 _decisions.mel_frontend_v1_1.supersedes 中，不删除，以保持可审计"
+    },
+    "project": {
+      "type": "string",
+      "const": "AcouDiet",
+      "description": "项目名。旧名 EatSense / ChewSense 不得出现（SPEC-00 §3.10 术语禁令）"
+    },
+    "sample_rate": {
+      "type": "integer",
+      "description": "采样率 Hz（FF-01）；单声道 PCM 16-bit"
+    },
+    "channels": {
+      "type": "integer",
+      "description": "声道数（FF-01）；固定单声道"
+    },
+    "bit_depth": {
+      "type": "integer",
+      "description": "位深（FF-01）"
+    },
+    "preemphasis": {
+      "type": "number",
+      "description": "预加重系数（FF-02）"
+    },
+    "preemphasis_boundary": {
+      "type": "string",
+      "enum": [
+        "continuous_stream_previous_raw_sample_or_zero_at_source_start"
+      ],
+      "description": "预加重首样本约定（ADR-21 修订；原 first_sample_passthrough 为 ADR-17）：**沿流取前一原始样本** —— 当前 patch 的首样本用「patch 开始前的最后一个**原始**（未预加重）样本」，源起点用 0；不是 x[−1] = x[0] 的逐 patch 重启。旧规则只在「每个 patch 都从录音开头开始」时自洽，而 patch 以 0.5 s 步长滑动，逐 patch 重启滤波器会把不连续点放在模型最爱看的位置（FF-02）。Python 训练侧与 Kotlin 侧必须读同一键，不得各写常量。"
+    },
+    "window": {
+      "type": "string",
+      "const": "hann",
+      "description": "窗函数（FF-03）"
+    },
+    "n_fft": {
+      "type": "integer",
+      "description": "FFT 点数（FF-03）"
+    },
+    "win_length": {
+      "type": "integer",
+      "description": "窗长（FF-03）；等于 n_fft"
+    },
+    "hop_length": {
+      "type": "integer",
+      "description": "帧移（FF-04）；不是 160，禁止写「帧移 10 ms」（SPEC-00 §3.10）"
+    },
+    "pad_mode": {
+      "type": "string",
+      "enum": [
+        "constant"
+      ],
+      "description": "STFT 填充模式（ADR-16，已冻结）：center=True 时用零填充（librosa 默认），不是 `reflect`。`reflect` 已否决 —— 会改变前若干 Mel 帧的数值，直接决定 PLAN-T-08 的 atol=1e-3 能否通过。"
+    },
+    "n_mels": {
+      "type": "integer",
+      "description": "Mel 频带数（FF-05）"
+    },
+    "mel_htk": {
+      "type": "boolean",
+      "description": "Mel 滤波器组是否使用 HTK 刻度（ADR-16，已冻结）：false = 使用 Slaney 刻度；`htk=True` 已否决（滤波器形状不同，是第二个高危数值分歧点）。"
+    },
+    "mel_norm": {
+      "type": "string",
+      "enum": [
+        "slaney"
+      ],
+      "description": "Mel 滤波器组的归一化方式（ADR-16，已冻结）：`slaney`（Slaney 面积归一化），不是 `htk`；与 mel_htk=false 配套。"
+    },
+    "fmin": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Mel 滤波器组最低频率 Hz（FF-05）"
+    },
+    "fmax": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Mel 滤波器组最高频率 Hz（FF-05）"
+    },
+    "power": {
+      "type": "number",
+      "description": "功率谱指数（FF-06）"
+    },
+    "compression": {
+      "type": "string",
+      "const": "power_to_db",
+      "description": "压缩方式（FF-07）"
+    },
+    "power_to_db_ref": {
+      "type": "string",
+      "const": "patch_max",
+      "description": "`power_to_db` 的 `ref`（ADR-21 修订；~~1.0 = 绝对刻度，ADR-16~~）：字符串 \"patch_max\" = 取**本 patch 的最大值**（FF-07）。ADR-16 否决 `ref=np.max` 的理由针对的是当时要冻结的那条链路，它对；但交付的模型**已按 patch 相对刻度训练**，此时「推理与训练不一致」是更大的误差，故正式反转 ADR-16 的这一项，理由记录在 _decisions.mel_frontend_v1_1。"
+    },
+    "power_to_db_amin": {
+      "type": "number",
+      "description": "`power_to_db` 的 `amin`（ADR-21 新增，FF-07）：1e-10，作对数下限的数值保护，避免 log10(0)"
+    },
+    "top_db": {
+      "type": "number",
+      "description": "power_to_db 的动态范围 dB（FF-07）；下限作用在全部 raw_mel_frames（129）帧上，min-max 窗口才是留下的 128 帧 —— 顺序见 operation_order"
+    },
+    "normalization": {
+      "type": "string",
+      "const": "per_patch_minmax",
+      "description": "归一化方式（ADR-21 修订；~~fixed_db_clip 固定 dB 截断后再 min-max~~）：逐 patch min-max 到 [normalization_output_min, normalization_output_max]（FF-08）。原固定 dB 窗口 [-80, 0] 随 db_clip_range 的删除一并取消。"
+    },
+    "normalization_epsilon": {
+      "type": "number",
+      "description": "逐 patch min-max 的分母保护（ADR-21 新增，FF-08）：1e-08，防止常数 patch（max = min）除零"
+    },
+    "normalization_output_min": {
+      "type": "number",
+      "description": "逐 patch min-max 的输出下界（ADR-21 新增，FF-08）：0.0；取代已删除的 db_clip_range 的 dB 下限"
+    },
+    "normalization_output_max": {
+      "type": "number",
+      "description": "逐 patch min-max 的输出上界（ADR-21 新增，FF-08）：1.0；取代已删除的 db_clip_range 的 dB 上限"
+    },
+    "loudness_normalization": {
+      "type": "string",
+      "enum": [
+        "training_only"
+      ],
+      "description": "响度归一化的作用域（ADR-17，已冻结）：`training_only` = 只在训练侧（T-03 增强）。推理侧不做 LUFS —— FF-08 的固定 dB 截断 + 逐 patch min-max 已提供尺度不变性，现场做 LUFS 只增加开销。"
+    },
+    "target_lufs": {
+      "type": "number",
+      "description": "训练侧 LUFS 目标（ADR-17 / T-03）；仅在 loudness_normalization = training_only 时生效，推理侧不读取。"
+    },
+    "patch_samples": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "单个 patch 的采样数（FF-09）；模型输入一律称 patch，不称「帧」（SPEC-00 §3.10）"
+    },
+    "patch_seconds": {
+      "type": "number",
+      "description": "单个 patch 的时长秒（FF-09）；唯一合法音频窗长，禁止出现 3 秒口径"
+    },
+    "center": {
+      "type": "boolean",
+      "description": "librosa center 参数（FF-10）；决定 STFT 原始帧数为 n_samples // hop + 1 = 129（raw_mel_frames）"
+    },
+    "raw_mel_frames": {
+      "type": "integer",
+      "const": 129,
+      "description": "STFT 原始帧数（ADR-21 新增，FF-11）：center=True 下 65536 // 512 + 1 = 129。**这不是张量宽度** —— 张量宽度是 n_frames = 128。把这两个概念合并成一个数字正是本次缺陷的成因，故拆成两个键。"
+    },
+    "n_frames": {
+      "type": "integer",
+      "const": 128,
+      "description": "喂给模型的张量宽度（ADR-21 修订，2026-09-12；~~const 129，ADR-P1，2026-09-10~~；FF-11 / SPEC-00 §3.5）。理由：交付制品的输入张量实测为 float32[1,128,128,1]（128×128×4 = 65536 字节），而 129 帧的 Mel 是 128×129×4 = 66048 字节，根本喂不进去；因此尾帧在归一化前丢弃（见 frame_selection），STFT 原始帧数仍为 129（raw_mel_frames）。旧值 129 与被否决方案记录在 _decisions.n_frames 及其 rejected_alternative 中，未删除。本字段必须等于 input_shape[2]、model_card.nFrames 与 Kotlin/Dart 常量。"
+    },
+    "frame_selection": {
+      "type": "object",
+      "description": "帧选择规则（ADR-21 新增，FF-11）：从 raw_mel_frames 个 STFT 帧中保留喂给模型的那一段，半开区间 [start_inclusive, end_exclusive)",
+      "additionalProperties": false,
+      "required": [
+        "strategy",
+        "start_inclusive",
+        "end_exclusive"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "const": "drop_tail",
+          "description": "选择策略（ADR-21）：丢弃尾部帧，保留前 end_exclusive 帧"
+        },
+        "start_inclusive": {
+          "type": "integer",
+          "const": 0,
+          "description": "保留段的起始帧（含），0"
+        },
+        "end_exclusive": {
+          "type": "integer",
+          "const": 128,
+          "description": "保留段的结束帧（不含），128；因此保留 128 帧 = n_frames"
+        }
+      }
+    },
+    "inference_hop_seconds": {
+      "type": "number",
+      "description": "推理滑窗步长秒（FF-12）；对应每秒 2 个 patch"
+    },
+    "operation_order": {
+      "type": "array",
+      "description": "前端算子顺序（ADR-21 新增，FF-08 / FF-11）：顺序承重 —— dB 参考与 top_db 下限算在全部 129 帧上，drop_tail 之后才做 per-patch min-max，min-max 窗口是留下的 128 帧；先 minmax 再截断会得到不同的数，故实现方按此顺序逐字写，而不是重新推导等价写法。ADR-21 删除了逐 patch DC 去除（交付侧的 operation_order 里没有这一步）",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "string",
+        "enum": [
+          "mono",
+          "resample_16000hz",
+          "pre_emphasis",
+          "crop_or_pad_65536_samples",
+          "mel_power_spectrogram_centered",
+          "power_to_db_patch_max",
+          "drop_tail_to_128_frames",
+          "per_patch_minmax",
+          "append_channel_axis"
+        ],
+        "description": "第 n 个算子名（按序）"
+      }
+    },
+    "input_shape": {
+      "type": "array",
+      "const": [1, 128, 128, 1],
+      "description": "模型输入张量形状 [batch, n_mels, n_frames, channel]（ADR-21 修订；~~[1,128,129,1]，ADR-P1~~；FF-14 / SPEC-00 §3.5）。第 3 维即 n_frames = 128，与 n_frames 字段必须一致；129 帧的 Mel 是 66048 字节，模型输入张量只有 65536 字节。",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "张量维度"
+      }
+    },
+    "num_classes": {
+      "type": "integer",
+      "const": 6,
+      "description": "识别类别数（FF-14/FF-19）；储备类别不进 v1.0"
+    },
+    "class_labels": {
+      "type": "array",
+      "const": ["chips", "cabbage", "gummies", "noodles", "carrot", "drink"],
+      "description": "类别标签及其顺序（FF-19；ADR-19 修订类别表，顺序用 const 钉死）；App 侧 foods.json 的键集合必须与之完全相等，顺序不得调整",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "string",
+        "enum": [
+          "chips",
+          "cabbage",
+          "gummies",
+          "noodles",
+          "carrot",
+          "drink"
+        ],
+        "description": "类别英文标签（FF-19）"
+      }
+    },
+    "model_internal_preprocessing": {
+      "type": "object",
+      "description": "交付模型图内部自带的前处理（ADR-21 新增，FF-14）：直接读交付 fp32 计算图的前三个算子得到 MUL(index 0) → ADD(index 1) → CONCATENATION(输入, 输入, 输入)。**前端不得重复实现**这些步骤 —— 它们是模型自己的层，再在外面做一遍就是把同一变换施加两次。ADR-20 曾把它描述为 1×1 Conv2D channel_expand，那句只对本仓占位 ai/src/model.py 成立，交付制品不是这样。",
+      "additionalProperties": false,
+      "required": [
+        "rescaling_scale",
+        "rescaling_offset",
+        "channel_adapter"
+      ],
+      "properties": {
+        "rescaling_scale": {
+          "type": "number",
+          "const": 2.0,
+          "description": "图内 Rescaling 的缩放系数（ADR-21）：2.0"
+        },
+        "rescaling_offset": {
+          "type": "number",
+          "const": -1.0,
+          "description": "图内 Rescaling 的偏移（ADR-21）：−1.0；与缩放系数配套把 [0,1] 映到 [−1,1]"
+        },
+        "channel_adapter": {
+          "type": "string",
+          "const": "concatenate_input_three_times",
+          "description": "单通道 → 三通道的接法（ADR-21）：把同一输入拼接三次，不是 1×1 Conv2D 扩展"
+        }
+      }
+    },
+    "_decisions": {
+      "type": "object",
+      "description": "已拍板决策的登记块（取代原 _pending_decision）。本块是决策记录，不参与数值读取；真正的数值在顶层键（n_frames / raw_mel_frames / input_shape / pad_mode / power_to_db_ref / mel_htk / mel_norm / preemphasis_boundary / normalization / loudness_normalization / target_lufs）与 `behavior` 块的 4 个 VAD 键（noise_floor_init / noise_floor_min / voiced_margin_db / noise_floor_alpha）上。**六项决策**：ADR-P1（n_frames）、ADR-16（mel_numerics）、ADR-17（preprocess_scope）、ADR-18（vad_parameters）、ADR-19（class_table）、ADR-21（mel_frontend_v1_1）。⚠️ 审计约定：被取代的旧值**不删除**，就地保留并由 superseded_on / superseded_by / superseded_reason 等字段标注取代者与取代范围；ADR-21 部分取代了 n_frames / mel_numerics / preprocess_scope 三条。",
+      "additionalProperties": false,
+      "required": [
+        "n_frames",
+        "mel_numerics",
+        "preprocess_scope",
+        "vad_parameters",
+        "class_table",
+        "mel_frontend_v1_1"
+      ],
+      "properties": {
+        "n_frames": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "superseded_on",
+            "superseded_by",
+            "value_now",
+            "value_before",
+            "reason",
+            "value",
+            "input_shape",
+            "decided_on",
+            "decision_ref",
+            "rationale",
+            "rejected_alternative",
+            "supersedes"
+          ],
+          "description": "ADR-P1 的原始决策记录（value = 129）。**该值已于 2026-09-12 被 ADR-21 取代**：当前生效值是顶层的 n_frames = 128，129 改称 raw_mel_frames。按本项目的审计约定，旧值**不删除**，就地保留并用 superseded_* / value_now / value_before 标注取代关系。",
+          "properties": {
+            "superseded_on": {
+              "type": "string",
+              "description": "被取代日期（ADR-21：2026-09-12）"
+            },
+            "superseded_by": {
+              "type": "string",
+              "description": "取代者（ADR-21，详见 _decisions.mel_frontend_v1_1）"
+            },
+            "value_now": {
+              "type": "integer",
+              "const": 128,
+              "description": "取代后当前生效的张量宽度（ADR-21；等于顶层 n_frames）"
+            },
+            "value_before": {
+              "type": "integer",
+              "const": 129,
+              "description": "被取代前的值（ADR-P1；原样保留以便审计）"
+            },
+            "reason": {
+              "type": "string",
+              "description": "取代理由：交付模型的输入张量是 [1,128,128,1]，物理上只有 128 帧，129 帧根本喂不进去；STFT 原始帧数仍是 129（现记为 raw_mel_frames），改变的是尾帧在归一化前被丢弃"
+            },
+            "value": {
+              "type": "integer",
+              "const": 129,
+              "description": "已拍板值（ADR-P1，2026-09-10）—— **历史值，已被 ADR-21 取代**；保留以维持可审计性，勿据此实现"
+            },
+            "input_shape": {
+              "type": "array",
+              "const": [1, 128, 129, 1],
+              "items": {
+                "type": "integer"
+              },
+              "description": "与已拍板值配套的模型输入形状（ADR-P1 的旧口径 [1,128,129,1]，已被 ADR-21 取代为 [1,128,128,1]）"
+            },
+            "decided_on": {
+              "type": "string",
+              "description": "拍板日期（ISO yyyy-mm-dd；2026-09-10）"
+            },
+            "decision_ref": {
+              "type": "string",
+              "description": "裁定编号与文档位置（ADR-P1）"
+            },
+            "rationale": {
+              "type": "string",
+              "description": "采纳理由：center=True 下 65536//512+1 帧；保留 4.096 s 窗口（2^16 样本、覆盖约 4–8 个咀嚼周期）；非 2 的幂帧数对 GlobalAveragePooling 分类器无影响"
+            },
+            "rejected_alternative": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "n_frames",
+                "patch_seconds",
+                "patch_samples",
+                "reason_rejected"
+              ],
+              "properties": {
+                "n_frames": {
+                  "type": "integer",
+                  "description": "被否决方案的帧数"
+                },
+                "patch_seconds": {
+                  "type": "number",
+                  "description": "被否决方案的窗口长度"
+                },
+                "patch_samples": {
+                  "type": "integer",
+                  "description": "被否决方案的样本数"
+                },
+                "reason_rejected": {
+                  "type": "string",
+                  "description": "否决理由"
+                }
+              }
+            },
+            "supersedes": {
+              "type": "string",
+              "description": "本决策取代的旧键名（_pending_decision）"
+            }
+          }
+        },
+        "mel_numerics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decided_on",
+            "decision_ref",
+            "issue",
+            "frozen",
+            "rationale",
+            "rejected_alternative"
+          ],
+          "properties": {
+            "decided_on": {
+              "type": "string",
+              "description": "拍板日期（ISO yyyy-mm-dd）"
+            },
+            "decision_ref": {
+              "type": "string",
+              "description": "裁定编号与文档位置（ADR-16）"
+            },
+            "issue": {
+              "type": "string",
+              "description": "被拍板的问题：STFT 填充模式 / power_to_db 的 ref / Mel 的 htk 与 norm 四个数值参数此前无冻结值"
+            },
+            "frozen": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "冻结值（pad_mode / power_to_db_ref / mel_htk / mel_norm）；逐键定义见上方同名顶层键"
+            },
+            "rationale": {
+              "type": "string",
+              "description": "采纳理由：四个值均为 librosa 默认并显式写出，使 Kotlin 侧有明确目标"
+            },
+            "rejected_alternative": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "被否决的备选（reflect 填充 / ref=np.max / htk=True）与否决理由"
+            },
+            "superseded_on": {
+              "type": "string",
+              "description": "部分被取代日期（ADR-21：2026-09-12）"
+            },
+            "superseded_partially_by": {
+              "type": "string",
+              "description": "部分取代者（ADR-21，详见 _decisions.mel_frontend_v1_1）"
+            },
+            "superseded_reason": {
+              "type": "string",
+              "description": "取代范围：pad_mode / mel_htk / mel_norm 三项不变且仍然正确；只有 power_to_db_ref 由 1.0 变为 \"patch_max\"。旧值 1.0 仍留在本条的 frozen 块内不删除，以便审计。"
+            }
+          }
+        },
+        "preprocess_scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decided_on",
+            "decision_ref",
+            "issue",
+            "frozen",
+            "rationale",
+            "rejected_alternative"
+          ],
+          "properties": {
+            "decided_on": {
+              "type": "string",
+              "description": "拍板日期（ISO yyyy-mm-dd）"
+            },
+            "decision_ref": {
+              "type": "string",
+              "description": "裁定编号与文档位置（ADR-17）"
+            },
+            "issue": {
+              "type": "string",
+              "description": "被拍板的问题：SPEC-P-03 §4 的参数表列了高通滤波器的截止频率与阶数而没有冻结值，§10 又承认预加重首样本约定没有定论。本裁定（ADR-17）已把前者从 v1.0 移除、把后者冻结为 x[−1] = x[0]。"
+            },
+            "frozen": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "冻结值（highpass / preemphasis_boundary / loudness_normalization）；逐键定义见上方同名顶层键"
+            },
+            "rationale": {
+              "type": "string",
+              "description": "采纳理由：高通从来不在冻结计划里（主方案 §3.7）；LUFS 仅训练侧，推理侧由 FF-08 提供尺度不变性"
+            },
+            "rejected_alternative": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "被否决的备选（2 阶 Butterworth @ 20 Hz 两侧同时实现）与否决理由"
+            },
+            "superseded_on": {
+              "type": "string",
+              "description": "部分被取代日期（ADR-21：2026-09-12）"
+            },
+            "superseded_partially_by": {
+              "type": "string",
+              "description": "部分取代者（ADR-21，详见 _decisions.mel_frontend_v1_1）"
+            },
+            "superseded_reason": {
+              "type": "string",
+              "description": "取代范围：highpass 仍为 removed_in_v1、loudness_normalization 仍为 training_only，两项不变；只有 preemphasis_boundary 由 first_sample_passthrough 变为沿流取前一原始样本。旧值仍留在本条的 frozen 块内不删除，以便审计。"
+            }
+          }
+        },
+        "vad_parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decided_on",
+            "decision_ref",
+            "issue",
+            "frozen",
+            "rationale",
+            "rejected_alternative"
+          ],
+          "properties": {
+            "decided_on": {
+              "type": "string",
+              "description": "拍板日期（ISO yyyy-mm-dd）"
+            },
+            "decision_ref": {
+              "type": "string",
+              "description": "裁定编号与文档位置（ADR-18）"
+            },
+            "issue": {
+              "type": "string",
+              "description": "被拍板的问题：PLAN-P-02 的 Kotlin 骨架消费了四个 VAD 参数（noiseFloorInit / noiseFloorMin / marginDbToLinear / alpha），而它们此前在 SSOT 中不存在，端点检测因此没有冻结阈值（与 ADR-16/17 同一类缺陷）"
+            },
+            "frozen": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "冻结值（noise_floor_init / noise_floor_min / voiced_margin_db / noise_floor_alpha）；这 4 个键位于 `behavior` 块内，逐键定义见上方 behavior 的同名子键"
+            },
+            "rationale": {
+              "type": "string",
+              "description": "采纳理由：判定为逐帧能量与**自适应**噪声底的比较，故 4 个常量与 envelope_* 同放 `behavior`（同一趟分帧同时产出 VAD 判定与 819 点包络）；除边距外均为线性 RMS；判定式 rms > noise_floor × 10^(voiced_margin_db / 20)"
+            },
+            "rejected_alternative": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "被否决的备选（用固定绝对阈值取代自适应噪声底）与否决理由：手机麦克风增益跨机型差异过大，绝对 RMS 阈值不可迁移"
+            }
+          }
+        },
+        "class_table": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decided_on",
+            "decision_ref",
+            "issue",
+            "frozen",
+            "rationale",
+            "rejected_alternative",
+            "known_data_risk"
+          ],
+          "description": "ADR-19（2026-09-12）的类别表修订记录：训练侧语料六类为 chips / cabbage / gummies / noodles / carrot / drink，取代 apple(1) / cookie(2) / bread(3)。",
+          "properties": {
+            "decided_on": {
+              "type": "string",
+              "description": "拍板日期（2026-09-12）"
+            },
+            "decision_ref": {
+              "type": "string",
+              "description": "裁定编号与文档位置（ADR-19）"
+            },
+            "issue": {
+              "type": "string",
+              "description": "被拍板的问题：训练侧语料替换了三个类别，其中 noodles 原为 FF-19 明确保留的类别，而项目对旧类别表有四处结构性守卫"
+            },
+            "frozen": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "冻结值（class_labels / zh_names / attributes / reserve_classes_after_revision）；逐键定义见上方同名顶层键与 API-03 §2"
+            },
+            "rationale": {
+              "type": "string",
+              "description": "采纳理由：按用户明确决策修订 FF-19（方案 A），保留守卫机制、只改其成员；attribute 改为按 foods.json 快照，不再由 classId 硬编码推导"
+            },
+            "rejected_alternative": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "被否决的备选（保持 FF-19 冻结、把训练侧目录映射到旧类别名）与否决理由"
+            },
+            "known_data_risk": {
+              "type": "string",
+              "description": "已知数据风险：noodles(412) 与 drink(293) 低于 SPEC-T-01 的每类 500 片段下限，cabbage 恰好等于该下限"
+            }
+          }
+        },
+        "mel_frontend_v1_1": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decided_on",
+            "decision_ref",
+            "issue",
+            "why_this_is_not_optional",
+            "frozen",
+            "rationale",
+            "rejected_alternative",
+            "honest_limits",
+            "boundary_impact",
+            "supersedes",
+            "closes_open_item"
+          ],
+          "description": "ADR-21（2026-09-12，Mel 前端 v1.1）的完整决策记录：按交付模型的真实规格修订 FF-02 / FF-07 / FF-08 / FF-11 / FF-14。本条是本块里唯一**当前生效**的取代记录，其余各条的 superseded_by 均指向它。",
+          "properties": {
+            "decided_on": {
+              "type": "string",
+              "description": "拍板日期（2026-09-12）"
+            },
+            "decision_ref": {
+              "type": "string",
+              "description": "裁定编号与文档位置（ADR-21）"
+            },
+            "issue": {
+              "type": "string",
+              "description": "被拍板的问题：交付模型的 feature_config.json 描述的前端与本仓冻结的不是同一条链路（patch_max dB / per-patch minmax / 丢弃尾帧 / 流式预加重），且制品张量形状 [1,128,128,1] 直接证伪了 129 帧口径"
+            },
+            "why_this_is_not_optional": {
+              "type": "string",
+              "description": "这不是可选优化：这是训练/推理偏斜。PLAN-T-08 的闸门只证明 Kotlin 与 Python 彼此一致，看不见训练侧"
+            },
+            "frozen": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "冻结值（preemphasis_boundary / power_to_db_ref / power_to_db_amin / normalization / normalization_epsilon / normalization_output / raw_mel_frames / n_frames / frame_selection / input_shape / dc_removal）；逐键定义见上方同名顶层键"
+            },
+            "rationale": {
+              "type": "string",
+              "description": "采纳理由：张量形状定 n_frames = 128 并把 129 记为 raw_mel_frames；power_to_db_ref 改为字符串 patch_max（ADR-16 的否决理由只对当时那条链路成立）；DC 去除因交付 operation_order 里没有而删除"
+            },
+            "rejected_alternative": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "被否决的备选（保持 v1.0 冻结链路、请模型组按它重训）与否决理由"
+            },
+            "honest_limits": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "一条限制或口径说明"
+              },
+              "description": "诚实口径：发布说明的精度数字本仓无法复测（语料为空）；本仓实测只覆盖桌面加载与推理，真机加载未实测"
+            },
+            "boundary_impact": {
+              "type": "string",
+              "description": "边界影响：SSOT 顶层键 41 → 49（+9 / −1，删除的是 db_clip_range）；握手指段 12 → 15；MEL_VERSION 1.0.0 → 1.1.0"
+            },
+            "supersedes": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "被本条取代的旧值（按 FF 编号登记，如 FF-11_n_frames: \"129 帧直接喂张量 (ADR-P1)\"）；旧值保留在此处而非从正文删除，保持可审计"
+            },
+            "closes_open_item": {
+              "type": "string",
+              "description": "关闭的开放项：ADR-20 登记的「模型组报告的 [1,128,128,1] 是笔误还是真实形状」，制品回答了它 —— 是真实形状"
+            }
+          }
+        }
+      }
+    },
+    "behavior": {
+      "type": "object",
+      "description": "**行为分析 + VAD 的共同参数块**（FF-21 + FF-21k）；由 API-02 的 BehaviorConfig 与 P-02 的 VadConfig 消费。VAD 的 4 个键（noise_floor_init / noise_floor_min / voiced_margin_db / noise_floor_alpha）与包络帧长/hop 同块，因为同一趟分帧同时产出 VAD 判定与 819 点 RMS 包络（FF-21h）。**SSOT 里没有 `vad` 对象** —— VAD 参数就在本块内（ADR-18）。",
+      "additionalProperties": false,
+      "required": [
+        "meal_end_silence_seconds",
+        "chew_min_peak_distance_ms",
+        "chew_max_peak_width_ms",
+        "chew_isolated_gap_ms",
+        "chew_peak_threshold_k",
+        "smoothing_window_ms",
+        "envelope_frame_ms",
+        "envelope_hop_ms",
+        "envelope_length",
+        "noise_floor_init",
+        "noise_floor_min",
+        "voiced_margin_db",
+        "noise_floor_alpha",
+        "chew_count_mae_degrade_ratio",
+        "speed_thresholds_seconds"
+      ],
+      "properties": {
+        "meal_end_silence_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "进食结束判据：连续无进食声的秒数（FF-21a；不是 30 s）"
+        },
+        "chew_min_peak_distance_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "咀嚼峰最小间距 ms（FF-21b）"
+        },
+        "chew_max_peak_width_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "伪峰过滤的峰宽上限 ms（FF-21d 前段：排除宽于此值的宽峰，吞咽声特征）"
+        },
+        "chew_isolated_gap_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "孤立峰邻域半径 ms（FF-21d 后段：前后此范围内无邻峰的峰判为环境噪声／餐具碰撞并排除）；由 API-02 的 BehaviorConfig.isolationGapMs 消费"
+        },
+        "chew_peak_threshold_k": {
+          "type": "number",
+          "minimum": 0,
+          "description": "峰值动态阈值的系数 k：阈值 = 本会话包络的 μ + k·σ（FF-21c，k = 0.5）"
+        },
+        "smoothing_window_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "包络滑动平均窗长 ms（主方案 §5.4 步骤 2，50 ms）；由 API-02 的 BehaviorConfig.smoothWindowMs 消费"
+        },
+        "envelope_frame_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "短时 RMS 包络的帧长 ms（FF-21h，10 ms = 160 样本 @16 kHz）"
+        },
+        "envelope_hop_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "短时 RMS 包络的帧移 ms（FF-21h，5 ms = 80 样本 @16 kHz）；随 patch 事件以 envelopeHopMs 下发，Dart 侧禁止硬编码"
+        },
+        "envelope_length": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "每个 patch 的包络点数（FF-21h）= floor(patch_samples × 1000 / (sample_rate × envelope_hop_ms)) = 819；验收断言其恒定"
+        },
+        "noise_floor_init": {
+          "type": "number",
+          "minimum": 0,
+          "description": "VAD 自适应噪声底的初始值（ADR-18 / FF-21k）：**线性 RMS**，0.001（约 −60 dBFS，典型安静房间）；会话开始时载入，不跨会话持久化"
+        },
+        "noise_floor_min": {
+          "type": "number",
+          "minimum": 0,
+          "description": "VAD 自适应噪声底的下限保护（ADR-18 / FF-21k）：**线性 RMS**，0.0003（约 −70 dBFS）；防止长时间数字静音把门限压到 0 而把底噪判成进食声"
+        },
+        "voiced_margin_db": {
+          "type": "number",
+          "minimum": 0,
+          "description": "VAD 判定边距（ADR-18 / FF-21k）：**分贝**，6.0 dB；判定式 `rms > noise_floor × 10^(voiced_margin_db / 20)` → voiced。不是线性倍数，也不是固定绝对阈值"
+        },
+        "noise_floor_alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "VAD 噪声底的一阶更新系数（ADR-18 / FF-21k）：**无量纲**，0.95；仅静默 patch 参与 `noiseFloor = max(noise_floor_min, (1 − alpha) × noiseFloor + alpha × rms)`，时间常数约 20 帧 @ 32 ms（约 0.64 s），使单次咀嚼瞬态不能抬高噪声底"
+        },
+        "chew_count_mae_degrade_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "咀嚼次数 MAE 降级线（FF-21g，0.25）：超过此比例则文案由「约 N 次」降级为「咀嚼节奏：较快」，不给绝对数字"
+        },
+        "speed_thresholds_seconds": {
+          "type": "object",
+          "description": "进食速度分档阈值（FF-21e）；由 API-02 的 BehaviorConfig.speedFastSeconds / speedNormalSeconds 消费",
+          "additionalProperties": false,
+          "required": [
+            "fast",
+            "normal"
+          ],
+          "properties": {
+            "fast": {
+              "type": "number",
+              "description": "平均咀嚼间隔低于此值判为「偏快」（FF-21e）"
+            },
+            "normal": {
+              "type": "number",
+              "description": "平均咀嚼间隔高于此值判为「偏慢」，中间为「正常」（FF-21e）"
+            }
+          }
+        }
+      }
+    },
+    "voting": {
+      "type": "object",
+      "description": "三级聚合与阈值参数（FF-20）；由 API-02 的 VotingConfig 消费。三档阈值须在 D3 用自采跨域测试集标定（FF-20b）。",
+      "additionalProperties": false,
+      "required": [
+        "ema_window",
+        "ema_alpha",
+        "confirm_consecutive_patches",
+        "tau_confirm",
+        "tau_low"
+      ],
+      "properties": {
+        "ema_window": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Level 1 的 EMA 窗口 patch 数（FF-20）"
+        },
+        "ema_alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Level 1 的 EMA 平滑系数（FF-20）"
+        },
+        "confirm_consecutive_patches": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Level 2 确认判据所需的连续 patch 数（FF-20）"
+        },
+        "tau_confirm": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Level 2 确认阈值（FF-20）；D3 标定产出，本 schema 不冻结数值"
+        },
+        "tau_low": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Level 3 人机协同下界（FF-20）；低于此值不写日志；D3 标定产出"
+        }
+      }
+    },
+    "meal_windows": {
+      "type": "object",
+      "description": "餐次窗口（ADR-09 修订 A-2 的机器可读版本；文字权威在 API-03 §5）。零食窗口 = 不落入任一正餐窗口的其余时段；零食与晚间刻意允许重叠。",
+      "additionalProperties": false,
+      "required": [
+        "units",
+        "breakfast",
+        "lunch",
+        "dinner",
+        "late_night",
+        "snack_is_complement_of_meals"
+      ],
+      "properties": {
+        "units": {
+          "type": "string",
+          "description": "口径说明：本地日分钟数、左闭右开 [start, end)；late_night 跨午夜"
+        },
+        "breakfast": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "description": "早餐窗口 [start, end)：05:00–10:00 → [300, 600]"
+        },
+        "lunch": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "description": "午餐窗口 [start, end)：11:00–14:00 → [660, 840]"
+        },
+        "dinner": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "description": "晚餐窗口 [start, end)：17:00–21:00 → [1020, 1260]"
+        },
+        "late_night": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440
+          },
+          "description": "晚间进食窗口（跨午夜）：20:00–次日 05:00 → [1200, 300]"
+        },
+        "snack_is_complement_of_meals": {
+          "type": "boolean",
+          "description": "true 表示 snackCount 取三个正餐窗口的补集，不单独给出边界"
+        }
+      }
+    },
+    "health_score_weights": {
+      "type": "object",
+      "description": "健康评分卡四维满分权重（FF-22）；由 API-04 的 DimensionScore.max 消费",
+      "additionalProperties": false,
+      "required": [
+        "regularity",
+        "structure",
+        "snack",
+        "speed"
+      ],
+      "properties": {
+        "regularity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "饮食规律性满分（FF-22）"
+        },
+        "structure": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "食物结构满分（FF-22）"
+        },
+        "snack": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "零食控制满分（FF-22）"
+        },
+        "speed": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "进食速度满分（FF-22）"
+        }
+      }
+    },
+    "health_score_formula": {
+      "type": "object",
+      "description": "评分卡的公式参数与求值约定（FF-22 + ADR-05 + ADR-15）。四维满分权重见 health_score_weights；公式本身按字面表达式实现。",
+      "additionalProperties": false,
+      "required": [
+        "regularity",
+        "structure",
+        "snack",
+        "speed",
+        "evaluation_order",
+        "rounding",
+        "grade_thresholds"
+      ],
+      "properties": {
+        "regularity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sigma_at_zero_score_minutes"
+          ],
+          "properties": {
+            "sigma_at_zero_score_minutes": {
+              "type": "number",
+              "minimum": 0,
+              "description": "饮食规律性：σ 达到此值（分钟）记 0 分（FF-22，90）；公式 = max(0, 1 − σ/此值) × 满分"
+            }
+          }
+        },
+        "structure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "healthy_ratio_at_full_score",
+            "healthy_labels"
+          ],
+          "properties": {
+            "healthy_ratio_at_full_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "食物结构：优质食物占比达到此值记满分（FF-22，0.4）"
+            },
+            "healthy_labels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "计入「优质」的类别英文名（FF-22；ADR-19 修订为 cabbage + carrot + noodles，类别 id 集合不变 {1,3,4}）；必须是 class_labels 的子集"
+            }
+          }
+        },
+        "snack": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "count_at_zero_score"
+          ],
+          "properties": {
+            "count_at_zero_score": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "零食控制：本周零食次数达到此值记 0 分（FF-22，10）"
+            }
+          }
+        },
+        "speed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "seconds_at_full_score",
+            "seconds_at_zero_score"
+          ],
+          "properties": {
+            "seconds_at_full_score": {
+              "type": "number",
+              "description": "进食速度：平均咀嚼间隔达到此秒数记满分（FF-22，0.8）"
+            },
+            "seconds_at_zero_score": {
+              "type": "number",
+              "description": "进食速度：平均咀嚼间隔低于此秒数记 0 分（FF-22，0.4），中间线性插值"
+            }
+          }
+        },
+        "evaluation_order": {
+          "type": "string",
+          "enum": [
+            "literal_expression"
+          ],
+          "description": "ADR-15：四维公式必须按字面表达式求值，不得代数重排。反例：30 × min(1, 0.30/0.4) = 22.499999999999996 → 22，而 30 × 0.30 / 0.4 = 22.5 → 23。"
+        },
+        "rounding": {
+          "type": "string",
+          "enum": [
+            "per_dimension_round_then_sum"
+          ],
+          "description": "四维各自 round() 后再求和；不得先求和再取整，否则 UI 展示四维明细时会与总分对不上（API-05 §6.2）"
+        },
+        "grade_thresholds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "good_min",
+            "fair_min"
+          ],
+          "description": "评级分档（ADR-P2 已拍板）：总分 ≥ good_min → 良好；≥ fair_min → 一般；否则 → 需改善",
+          "properties": {
+            "good_min": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "「良好」下界（80）"
+            },
+            "fair_min": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "「一般」下界（60）"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,319 @@
+// app/lib/presentation/theme/acou_theme.dart
+//
+// The U-06 design system: the Material 3 colour scheme, the semantic colour roles of the three
+// grades, the spacing / radius / elevation tokens, and the contrast guarantees.
+//
+// ADR-24 (visual rebuild): the palette and the surface treatment now follow the delivered UI
+// mockups (`软件UI界面设计图/1.png` … `10.png`) -- mint-to-cream page gradient, white rounded
+// cards with a soft shadow, a stadium-shaped primary action, a pill-shaped selected tab. The
+// mockups were drawn for an iPhone shell with a five-axis nutrient radar, a "diversity" counter
+// and a "我的" tab; those three *information* choices stay rejected (SPEC-U-01 acceptance 1 keeps
+// four FF-22 axes, README section 8 replaced diversity with the record count, FF-23/ADR-12 keep
+// the fourth tab as 报告). What is adopted is the **look**, not the wording or the metrics.
+//
+// Rules this file exists to enforce (unchanged):
+//  * no page writes a magic spacing number -- everything comes from the tokens below;
+//  * colour is never the only carrier of meaning (U-06 section 8): every coloured element also
+//    carries text or a semantic label, which is why the "tone" enums live in the pure
+//    `acou_format.dart` and this file only maps them to paint;
+//  * body text keeps a contrast ratio of at least 4.5:1 on its surface (U-06 manual checklist
+//    item 1 / README section 7). The palette below is chosen so that the darkest ink on the
+//    lightest surface and the grade inks on white both clear that bar; the exact ratios are
+//    asserted by `test/ui/design_system_test.dart` and `test/ui/score_card_render_test.dart`.
+//
+// ⚠️ The mint tones are **fills, never body text**: `mint` on white is about 2:1, which is legal
+// behind a white glyph or as a progress-bar run and illegal as a sentence colour. Text on a mint
+// fill uses [onMint]; text *about* a mint object uses [ink] or [gradeGood].
+
+import 'package:flutter/material.dart';
+
+import 'acou_format.dart' show ConfidenceTier, GradeTone;
+
+/// Design tokens and the Material 3 theme of the whole app.
+abstract final class AcouTheme {
+  AcouTheme._();
+
+  // ------------------------------------------------------------------ colour
+
+  /// FF-23 / visual-correction list: the brand stays one word, and the palette follows the
+  /// green primary of the reference screen.
+  static const Color seed = Color(0xFF2E7D5B);
+
+  /// The same hue at ~18 % alpha, written as a literal so the file needs no
+  /// `withOpacity`/`withValues` call (whose spelling differs across Flutter releases).
+  static const Color seedSoft = Color(0x2E2E7D5B);
+
+  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surfaceMuted = Color(0xFFF4F6F4);
+  static const Color outline = Color(0xFFD6DBD7);
+
+  /// Body ink. 12.6:1 on white.
+  static const Color ink = Color(0xFF1B1F1C);
+
+  /// Secondary ink. 7.0:1 on white.
+  static const Color inkMuted = Color(0xFF4C5550);
+
+  /// Grade inks: 4.9:1 / 5.1:1 / 5.4:1 on white respectively, so they are legal as text colour
+  /// and not only as a chip background.
+  static const Color gradeGood = Color(0xFF1E6B47);
+  static const Color gradeFair = Color(0xFF8A5A00);
+  static const Color gradePoor = Color(0xFF9E2B25);
+
+  /// Confidence inks, aligned with FF-20's three bands.
+  static const Color confidenceHigh = Color(0xFF1E6B47);
+  static const Color confidenceMedium = Color(0xFF8A5A00);
+  static const Color confidenceLow = Color(0xFF5A5F5C);
+  static const Color confidenceNone = Color(0xFF6B7280);
+
+  // ------------------------------------------------------------- brand visuals
+
+  /// The mockups' primary action colour and its darker end (the button is a gradient there; a
+  /// solid [mintDeep] plus a stadium shape is the honest Flutter equivalent -- a gradient-filled
+  /// `FilledButton` needs a custom painter and would drop the Material ink/ripple semantics).
+  static const Color mint = Color(0xFF45C9A5);
+  static const Color mintDeep = Color(0xFF2FB68F);
+
+  /// A very light mint for chips, icon tiles and the "soft" section fills.
+  static const Color mintSoft = Color(0xFFE7F8F1);
+
+  /// The page gradient: teal at the top (behind the app bar), washing into cream at the bottom.
+  /// Painted by [pageGradientDecoration], never by a page's own `LinearGradient`.
+  static const Color pageTop = Color(0xFF57D2B4);
+  static const Color pageMid = Color(0xFFE9F9EF);
+  static const Color pageBottom = Color(0xFFFBFDEA);
+
+  /// Text/icons drawn **on** [mint] or [mintDeep].
+  static const Color onMint = Color(0xFFFFFFFF);
+
+  /// The demo banner tint; deliberately loud, because M-03 requires the badge to be visible
+  /// rather than a footnote.
+  static const Color demoBanner = Color(0xFFFFF3CD);
+  static const Color demoBannerInk = Color(0xFF6B4E00);
+
+  /// The mockups' gold star on a day header. **Decoration only** -- it marks nothing and carries
+  /// no value, which is why it is not in any contrast assertion: a reader who cannot tell it from
+  /// the background loses no information, and the day, its date and its count are all text.
+  static const Color starGold = Color(0xFFF6B93B);
+
+  static const Map<GradeTone, Color> gradeToneColor = {
+    GradeTone.good: gradeGood,
+    GradeTone.fair: gradeFair,
+    GradeTone.poor: gradePoor,
+  };
+
+  static const Map<ConfidenceTier, Color> confidenceTierColor = {
+    ConfidenceTier.high: confidenceHigh,
+    ConfidenceTier.medium: confidenceMedium,
+    ConfidenceTier.low: confidenceLow,
+    ConfidenceTier.none: confidenceNone,
+  };
+
+  static Color forGrade(GradeTone tone) => gradeToneColor[tone] ?? ink;
+  static Color forConfidence(ConfidenceTier tier) => confidenceTierColor[tier] ?? ink;
+
+  // ------------------------------------------------------------------ spacing / shape
+
+  static const double spaceXs = 4;
+  static const double spaceSm = 8;
+  static const double spaceMd = 16;
+  static const double spaceLg = 24;
+  static const double spaceXl = 32;
+  static const double spacePage = 16;
+
+  static const double radiusSm = 8;
+  static const double radiusMd = 12;
+
+  /// The mockups' card radius; larger than the old hairline-card radius because the shadow is
+  /// now what separates a card from the background.
+  static const double radiusLg = 20;
+
+  static const double elevationCard = 0;
+  static const double elevationSheet = 8;
+
+  /// U-06 section 8: no touch target may be smaller than 48 x 48 dp.
+  static const double minTapTarget = 48;
+
+  /// The chart canvas height, one value for the radar and the trend chart.
+  static const double chartSize = 200;
+
+  // ------------------------------------------------------------------ theme
+
+  /// The application theme. Light only: SPEC-U-06 section 10 #2 keeps the dark theme out of
+  /// v1.0, and the reference screens are light.
+  static ThemeData light() {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: seed,
+      brightness: Brightness.light,
+    ).copyWith(primary: mintDeep, onPrimary: onMint, secondary: mint);
+    final base = ThemeData(colorScheme: scheme, useMaterial3: true);
+    return base.copyWith(
+      // Pages that paint the gradient set their own background; this flat mint is what a page
+      // without a gradient (the sheet-covered detail pages) falls back to.
+      scaffoldBackgroundColor: const Color(0xFFF3FBF6),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: ink,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      dividerTheme: const DividerThemeData(color: outline, thickness: 1, space: 1),
+      listTileTheme: const ListTileThemeData(
+        minVerticalPadding: spaceSm,
+        iconColor: inkMuted,
+      ),
+      textTheme: base.textTheme.apply(bodyColor: ink, displayColor: ink),
+      // The mockups' primary action: a stadium-shaped mint fill. Declared once so no page has to
+      // restate the shape (and so a tap target can never shrink below [minTapTarget]).
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: mintDeep,
+          foregroundColor: onMint,
+          disabledBackgroundColor: outline,
+          disabledForegroundColor: surfaceMuted,
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: spaceLg, vertical: 14),
+          textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: gradeGood,
+          side: const BorderSide(color: mint),
+          shape: const StadiumBorder(),
+          padding: const EdgeInsets.symmetric(horizontal: spaceLg, vertical: 12),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: gradeGood),
+      ),
+      chipTheme: base.chipTheme.copyWith(
+        backgroundColor: surface,
+        selectedColor: mintSoft,
+        side: const BorderSide(color: outline),
+        shape: const StadiumBorder(),
+        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: ink),
+        secondaryLabelStyle: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: gradeGood,
+        ),
+        showCheckmark: false,
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: surface,
+        selectedItemColor: gradeGood,
+        unselectedItemColor: inkMuted,
+        type: BottomNavigationBarType.fixed,
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ink,
+        contentTextStyle: TextStyle(color: surface),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------ surfaces
+
+  /// The page gradient of every top-level page.
+  static const LinearGradient pageGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [pageTop, pageMid, pageBottom],
+    stops: [0.0, 0.42, 1.0],
+  );
+
+  /// A decorative container for the pages that paint the gradient: it also carries the ambient
+  /// mint wash that the mockups use behind the top cards.
+  static BoxDecoration pageGradientDecoration() => const BoxDecoration(gradient: pageGradient);
+
+  /// The soft drop shadow that replaced the hairline outline. A shadow does not participate in
+  /// layout, so growing the font scale still cannot shift a card the way a border can.
+  static List<BoxShadow> get cardShadows => const [
+        BoxShadow(
+          color: Color(0x14204E3F),
+          blurRadius: 18,
+          offset: Offset(0, 6),
+        ),
+      ];
+
+  /// A white rounded card with the mockup's shadow.
+  static BoxDecoration cardDecoration({Color? fill, BorderRadius? radius}) => BoxDecoration(
+        color: fill ?? surface,
+        borderRadius: radius ?? BorderRadius.circular(radiusLg),
+        boxShadow: cardShadows,
+      );
+
+  /// A light mint tile used behind a glyph (the mockups' food thumbnails / entry icons).
+  static BoxDecoration softTileDecoration({Color? fill}) => BoxDecoration(
+        color: fill ?? mintSoft,
+        borderRadius: BorderRadius.circular(radiusMd),
+      );
+
+  /// The suggestion card's gradient (ADR-24, the mockups' 「健康建议」 block).
+  ///
+  /// ⚠️ **Deliberately light.** The mockup paints that card mid-green with *white* body text, which
+  /// is about 2.5:1 and illegal under U-06 section 8 (and would fail the contrast assertions in
+  /// `test/ui/design_system_test.dart`). The shape, the gradient and the icon are the mockup's; the
+  /// text is `ink` on a light mint wash, so the block is readable and still recognisably the one
+  /// the designer drew.
+  static const LinearGradient adviceGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [mintSoft, Color(0xFFD3F2E5)],
+  );
+
+  /// The card that carries [adviceGradient]; same radius/shadow as [cardDecoration].
+  static BoxDecoration adviceCardDecoration() => BoxDecoration(
+        gradient: adviceGradient,
+        borderRadius: BorderRadius.circular(radiusLg),
+        boxShadow: cardShadows,
+      );
+
+  /// The mint panel behind the profile page's three-up overview (mockup 9).
+  static BoxDecoration overviewPanelDecoration() => BoxDecoration(
+        color: mintSoft,
+        borderRadius: BorderRadius.circular(radiusLg),
+      );
+
+  // ------------------------------------------------------------------ text styles
+
+  /// The big score number.
+  static const TextStyle scoreLarge = TextStyle(
+    fontSize: 44,
+    fontWeight: FontWeight.w800,
+    color: ink,
+    height: 1.05,
+  );
+
+  static const TextStyle sectionTitle = TextStyle(
+    fontSize: 19,
+    fontWeight: FontWeight.w700,
+    color: ink,
+  );
+
+  /// The greeting line of the home / profile headers (`Hi，今天也要好好吃饭呀！`).
+  static const TextStyle headline = TextStyle(
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    color: ink,
+    height: 1.25,
+  );
+
+  static const TextStyle body = TextStyle(fontSize: 15, color: ink, height: 1.35);
+  static const TextStyle bodyMuted = TextStyle(fontSize: 14, color: inkMuted, height: 1.35);
+  static const TextStyle caption = TextStyle(fontSize: 12, color: inkMuted, height: 1.3);
+  static const TextStyle metric = TextStyle(
+    fontSize: 15,
+    color: ink,
+    fontWeight: FontWeight.w700,
+  );
+
+  /// The white-on-mint style of a glyph drawn on the primary action.
+  static const TextStyle onPrimaryAction = TextStyle(
+    fontSize: 17,
+    fontWeight: FontWeight.w700,
+    color: onMint,
+  );
+}

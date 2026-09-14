@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AcouDiet Android manifest (FF-23 / FF-24).
+
+  FF-24 is a non-negotiable constraint, and two of its seven items are visible right here:
+
+    * item 4: the APK must NOT request INTERNET. There is no cloud backend in v1.0, and the
+      absence of this permission is the technical basis of the privacy claim — not an
+      oversight. `aapt dump badging` is the evidence.
+    * item 5: RECORD_AUDIO is the ONLY permission. No camera, no location, no contacts.
+
+  There is also no <service> declaration: detection is always user-initiated from the
+  detection page (FF-24 item 6), so nothing may keep running in the background.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Feature is optional so the app still installs on a device without a microphone;
+         Mode B/C demos must work even when the microphone is unavailable. -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <application
+        android:label="AcouDiet"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:usesCleartextTraffic="false"
+        android:enableOnBackInvokedCallback="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <!-- No <queries> block: the app never queries or launches other apps. -->
+</manifest>

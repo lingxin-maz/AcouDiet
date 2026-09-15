@@ -12,11 +12,11 @@
 
 | # | 文件路径 | 内容 |
 |---|---|---|
-| 1 | `docs/compliance/C-02/consent_form_v1.0.md` | 知情同意书模板（必含 `SPEC-C-02` §4.1 的 7 条） |
-| 2 | `docs/compliance/C-02/scans/<subjectId>_consent_masked.pdf` | 已签署件扫描（姓名/联系方式打码），按编号一文件 |
-| 3 | `docs/compliance/C-02/consent_registry.md` | 归档清单（字段见 `SPEC-C-02` §4.2） |
-| 4 | `docs/compliance/C-02/withdraw_log.md` | 撤回权执行记录（表头 + 逐次记录） |
-| 5 | `docs/compliance/C-02/README.md` | 归档索引 + §7 核对表结论 |
+| 1 | `records/compliance/C-02/consent_form_v1.0.md` | 知情同意书模板（必含 `SPEC-C-02` §4.1 的 7 条） |
+| 2 | `records/compliance/C-02/scans/<subjectId>_consent_masked.pdf` | 已签署件扫描（姓名/联系方式打码），按编号一文件 |
+| 3 | `records/compliance/C-02/consent_registry.md` | 归档清单（字段见 `SPEC-C-02` §4.2） |
+| 4 | `records/compliance/C-02/withdraw_log.md` | 撤回权执行记录（表头 + 逐次记录） |
+| 5 | `records/compliance/C-02/README.md` | 归档索引 + §7 核对表结论 |
 | 6 | 竞赛材料附录第 1 项 | 打码后的同意书扫描件（提交时附上） |
 
 > **先签后用**：任何 `<subjectId>` 的音频进入 `ai/data/raw/` 之前，交付物 #2 与 #3 必须已就位。**这是数据采集的开关，不是事后补的手续。**

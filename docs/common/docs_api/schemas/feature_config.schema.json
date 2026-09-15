@@ -54,7 +54,8 @@
     "voting",
     "meal_windows",
     "health_score_weights",
-    "health_score_formula"
+    "health_score_formula",
+    "agent"
   ],
   "properties": {
     "_comment": {
@@ -838,7 +839,8 @@
         "ema_alpha",
         "confirm_consecutive_patches",
         "tau_confirm",
-        "tau_low"
+        "tau_low",
+        "confirmation_mute_seconds"
       ],
       "properties": {
         "ema_window": {
@@ -868,6 +870,11 @@
           "minimum": 0,
           "maximum": 1,
           "description": "Level 3 人机协同下界（FF-20）；低于此值不写日志；D3 标定产出"
+        },
+        "confirmation_mute_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "FF-20d 同级静默窗口（秒）。用户对某类别作答「是/否」后，同一会话内该类别在此窗口内不得再次提问（SPEC-P-06 §2.4「同一 classId 只问一次」的可执行化）。属于会话内内存态，不落盘、不入库、不参与 15 字段握手。"
         }
       }
     },
@@ -1082,6 +1089,154 @@
               "description": "「一般」下界（60）"
             }
           }
+        }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "description": "云端智能体配置（ADR-44，SPEC-00 §3.11 FF-26 / API-07 §6）。**本块是模型标识符唯一允许出现的位置**（FF-26h）：Dart 与 Kotlin 源码中不得出现该字面量，因为上游厂商在一年内改过两次名并退役旧名，写死的模型名会静默腐烂。本块**不参与**启动握手（API-00 §3.6 的 15 字段闭集）——它不改变任何张量语义，且 check_bridge_symmetry.py 把握手字段集断言为恰好那 15 个。三个平台的检索 URL 模板采用 `{q}` 占位符，由 G-03 用 Uri.encodeComponent 替换；verified_on 为空字符串表示**尚未在真机上核实**，UI 必须如实标注而不是假装可用。",
+      "additionalProperties": true,
+      "required": [
+        "enabled_by_default",
+        "base_url",
+        "model",
+        "connect_timeout_ms",
+        "read_timeout_ms",
+        "max_tool_rounds",
+        "max_history_messages",
+        "max_request_bytes",
+        "max_output_tokens",
+        "temperature",
+        "recommend_keyword_max_chars",
+        "platform_meituan_label",
+        "platform_meituan_url",
+        "platform_meituan_scheme",
+        "platform_meituan_enabled",
+        "platform_meituan_verified_on",
+        "platform_eleme_label",
+        "platform_eleme_url",
+        "platform_eleme_scheme",
+        "platform_eleme_enabled",
+        "platform_eleme_verified_on",
+        "platform_taobao_label",
+        "platform_taobao_url",
+        "platform_taobao_scheme",
+        "platform_taobao_enabled",
+        "platform_taobao_verified_on"
+      ],
+      "properties": {
+        "enabled_by_default": {
+          "type": "boolean",
+          "description": "首启时云端智能是否开启（FF-26c）：false。开启必须经 SPEC-C-06 的显式同意门；关闭态行为与 offline 风味等价（FF-24 第 9 条）"
+        },
+        "base_url": {
+          "type": "string",
+          "description": "DeepSeek OpenAI 兼容端点的根（FF-26a）；非 https 必须被连接层拒绝（SPEC-G-01 §2.4）"
+        },
+        "model": {
+          "type": "string",
+          "description": "模型标识符（FF-26h）。**唯一允许出现的位置**：源码中不得硬编码。上游改模型名时只改这里，不需要发新版代码"
+        },
+        "connect_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "连接超时毫秒（FF-26g）"
+        },
+        "read_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "读取超时毫秒（FF-26g）"
+        },
+        "max_tool_rounds": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "单轮用户输入内允许的工具调用循环上限（FF-26g）。达到即终止本轮并如实告知，不得静默续跑"
+        },
+        "max_history_messages": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "对话历史上限（FF-26g）。超出丢弃最旧的**非 system** 消息"
+        },
+        "max_request_bytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "description": "单次请求体字节上限（FF-26g / API-05 §13.2.4）。超限时裁剪历史，**不放宽上限**——上限存在的意义正是挡住「把大对象意外塞进来」"
+        },
+        "max_output_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "单次回复输出 token 上限"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "采样温度。取偏低值：本功能的输出要落到固定形状的工具调用上，不是创意写作"
+        },
+        "recommend_keyword_max_chars": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "外卖检索词的最大字符数（G-03 §5 在此冻结）。超出即截断，避免把一整句用户输入原样塞进 URL"
+        },
+        "platform_meituan_label": {
+          "type": "string",
+          "description": "平台中文名（FF-26j）"
+        },
+        "platform_meituan_url": {
+          "type": "string",
+          "description": "检索 URL 模板（**网页**形态），含占位符 {q}（API-07 §3.3）。Windows/桌面或未装 App 时走这一条"
+        },
+        "platform_meituan_scheme": {
+          "type": "string",
+          "description": "检索 URL 模板（**App scheme** 形态），含占位符 {q}。优先于 `_url` 尝试，用来**直接唤起已安装的目标 App** 而不是落到浏览器；`canOpenUrl` 答否或唤起抛异常时回落 `_url`。⚠️ 这些 scheme 未在任何真机上核实过 —— `verified_on` 同时管辖两条模板"
+        },
+        "platform_meituan_enabled": {
+          "type": "boolean",
+          "description": "是否在 U-07 上提供该平台入口。模板真机核实失败时置 false，**不需要改代码**"
+        },
+        "platform_meituan_verified_on": {
+          "type": "string",
+          "description": "真机核实日期（ISO yyyy-mm-dd）；空字符串 = 未核实，UI 必须显示「可能打不开」的次要提示"
+        },
+        "platform_eleme_label": {
+          "type": "string",
+          "description": "平台中文名（FF-26j）"
+        },
+        "platform_eleme_url": {
+          "type": "string",
+          "description": "检索 URL 模板（**网页**形态），含占位符 {q}（API-07 §3.3）"
+        },
+        "platform_eleme_scheme": {
+          "type": "string",
+          "description": "检索 URL 模板（**App scheme** 形态），含占位符 {q}。⚠️ 未核实；该平台默认 `enabled=false`（网页入口已在阿里体系内改道）"
+        },
+        "platform_eleme_enabled": {
+          "type": "boolean",
+          "description": "是否在 U-07 上提供该平台入口。默认 false：开发机实测该 H5 入口跨域跳转到 taobaoshangou.ele.me，说明饿了么的网页入口已在阿里体系内改道，很可能不可用（API-07 §3.3）"
+        },
+        "platform_eleme_verified_on": {
+          "type": "string",
+          "description": "真机核实日期（ISO yyyy-mm-dd）；空字符串 = 未核实"
+        },
+        "platform_taobao_label": {
+          "type": "string",
+          "description": "平台中文名（FF-26j）"
+        },
+        "platform_taobao_url": {
+          "type": "string",
+          "description": "检索 URL 模板（**网页**形态），含占位符 {q}（API-07 §3.3）"
+        },
+        "platform_taobao_scheme": {
+          "type": "string",
+          "description": "检索 URL 模板（**App scheme** 形态），含占位符 {q}。⚠️ 未核实，理由同美团"
+        },
+        "platform_taobao_enabled": {
+          "type": "boolean",
+          "description": "是否在 U-07 上提供该平台入口"
+        },
+        "platform_taobao_verified_on": {
+          "type": "string",
+          "description": "真机核实日期（ISO yyyy-mm-dd）；空字符串 = 未核实"
         }
       }
     }

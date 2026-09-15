@@ -1,0 +1,7 @@
+<name>=AcouDiet-v1.3.0-20260915-arm64-v8a-offline.apk
+<flavour>=offline
+<bytes>=27171584
+<sha256>=ffa084922fa50142bf106c125e54f4982d2802a4d508ebddda541a1c734f6231
+<builtOn>=2026-09-15
+<appVersion>=1.3.0+6
+<gradlePermissionGate>=PASSED

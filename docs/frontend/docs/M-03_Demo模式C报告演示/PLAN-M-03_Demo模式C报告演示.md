@@ -14,11 +14,11 @@
 | 1 | `app/assets/demo_dataset.json` | Track 2 预置数据集（路径由 `API-05 §7` 冻结）：7 天记录 + `datasetVersion`（条数按主方案 §9.1） |
 | 2 | `app/lib/features/demo/demo_data_loader.dart` | `DemoDataController.loadDemoDataset()` / `clearDemoDataset()` / `isDemoActive` 的调用编排（`API-04 §6`） |
 | 3 | `app/test/demo/report_demo_consistency_test.dart` | SPEC §7 的 C1–C7、C11 |
-| 4 | `docs/demo/现场SOP卡片.md` | **主方案 §9.2 六条 SOP 的现场可打印卡片**（内容载体） |
-| 5 | `docs/demo/演示脚本_D9.md` | 0–1 min 痛点 / 1–5 min 核心 Demo / 5–8 min 健康分析 / 8–10 min 技术的分镜 |
-| 6 | `docs/demo/演示数据集说明.md` | 数据集人可读说明（每条的构造依据、来源、`datasetVersion`） |
-| 7 | `docs/demo/D9_三模式实测记录.md` | Mode C 段；含 SPEC §7 C13 记录表 |
-| 8 | `docs/demo/evidence/D9_modeC_*.log` | `isDemoActive` / `datasetVersion` / `source` 分布 / UI 总分与复算总分快照 |
+| 4 | `records/demo/现场SOP卡片.md` | **主方案 §9.2 六条 SOP 的现场可打印卡片**（内容载体） |
+| 5 | `records/demo/演示脚本_D9.md` | 0–1 min 痛点 / 1–5 min 核心 Demo / 5–8 min 健康分析 / 8–10 min 技术的分镜 |
+| 6 | `records/demo/演示数据集说明.md` | 数据集人可读说明（每条的构造依据、来源、`datasetVersion`） |
+| 7 | `records/demo/D9_三模式实测记录.md` | Mode C 段；含 SPEC §7 C13 记录表 |
+| 8 | `records/demo/evidence/D9_modeC_*.log` | `isDemoActive` / `datasetVersion` / `source` 分布 / UI 总分与复算总分快照 |
 
 ## 2. 任务拆解（WBS）
 | # | 任务 | 产出 | 工时 | 依赖 |
@@ -29,7 +29,7 @@
 | 4 | 「演示数据」标识落位（首屏 + 报告页 ≥2 处） | SPEC §7 C5 | 0.25 h（C） | 任务 3、`PLAN-U-04` |
 | 5 | 自洽测试 C1–C3、C5、C7、C11（UI 数字 vs 复算）；**C14 演示数据就绪自检项** | 交付物 3 | 0.5 h（C + A） | 任务 3、4；`PLAN-M-04`；ADR-04 |
 | 6 | 清除范围测试 C6、C8 | 交付物 3 | 0.25 h（C） | 任务 3 |
-| 7 | 写 `docs/demo/现场SOP卡片.md`（六条）+ 分镜脚本 | 交付物 4、5 | 0.5 h（C） | 主方案 §9.2 |
+| 7 | 写 `records/demo/现场SOP卡片.md`（六条）+ 分镜脚本 | 交付物 4、5 | 0.5 h（C） | 主方案 §9.2 |
 | 8 | 真机 2 轮实测 + 记录表 + 证据（C12/C13） | 交付物 7、8 | 0.25 h（C） | 任务 6、7 |
 
 ## 3. 技术方案
@@ -66,7 +66,7 @@ Future<void> switchTo(DemoMode m) async {
 6. **演示数据就绪自检（ADR-04 第 14 项 `demoData`）是本模式的硬前置**（`SPEC-M-03 §2.2` 第 8 步）：切 `reportOnly` 前先读 `SelfCheckReport` 中 `key == "demoData"` 的项，`passed == false` 即阻断并展示 `observed` + `hint`。若失败原因是「库内残留演示数据与数据集标识不一致」，先用 `clearDemoDataset()` 清空后重试，**不得跳过自检直接渲染报告页**。
 7. 报告页可见数字的诊断来源固定为 `API-01 §2.8` 的 `getDiagnostics()`（`activeSessionId`、`sessionState`），**不得**由 UI 自行推算会话状态。
 
-**`docs/demo/现场SOP卡片.md` 必含六条**（主方案 §9.2，逐条对应、缺一即 C10 失败）：
+**`records/demo/现场SOP卡片.md` 必含六条**（主方案 §9.2，逐条对应、缺一即 C10 失败）：
 ①提前 **30** 分钟到场实测完整流程；②手机开**飞行模式**（隐私设计保证不需要网络）；③环境噪声 >**65**dB 直接走 Mode B；④准备**备用**手机（型号不同更好）；⑤现场**禁止临时改代码**；⑥按**脚本**分镜演示（0–1/1–5/5–8/8–10 min）。
 
 ## 4. 测试与验证
@@ -87,9 +87,9 @@ Future<void> switchTo(DemoMode m) async {
 
 ## 5. 完成定义（DoD）
 - [ ] `SPEC-M-03 §7` 的 **C1–C3、C5–C11、C14 全部判据通过**（测试全绿 / 脚本退出码 0）。
-- [ ] **C1–C3 的「差异」列在真机上实测为 0**，结果写入 `docs/demo/D9_三模式实测记录.md`（标注「D9 实测产出」）。
-- [ ] `docs/demo/现场SOP卡片.md` 六条齐备、可打印、现场已实际携带（C10 通过）。
-- [ ] `docs/demo/演示脚本_D9.md` 四个时段分镜完成，且首屏确认时机口径为 FF-20a。
+- [ ] **C1–C3 的「差异」列在真机上实测为 0**，结果写入 `records/demo/D9_三模式实测记录.md`（标注「D9 实测产出」）。
+- [ ] `records/demo/现场SOP卡片.md` 六条齐备、可打印、现场已实际携带（C10 通过）。
+- [ ] `records/demo/演示脚本_D9.md` 四个时段分镜完成，且首屏确认时机口径为 FF-20a。
 - [ ] C12 现场核对表 7 项 100% 勾选并签字；C13 记录表 ≥2 轮无空列。
 - [ ] `SPEC-M-03 §10` 开放问题 1（`ACD-DEMO-002` 补登 `API-00 §3.5`）、2（`datasetVersion` 回写 `API-04 §6`）、4（数据集条数与阈值口径）已闭环；**开放问题 3 已按 ADR-06 修订 A-1 关闭**——「已坚持 N 天」取 `StatsRepo.activeDays()` 口径（跨全部历史、不分 real/demo），原「演示模式下天数同步切换或标注」诉求作废；**开放问题 5 已按 ADR-04 关闭**——本模式的就绪判据统一读自检第 14 项 `demoData`（C14 通过）。
 - [ ] 代码与数据集合入 D8 节点分支；D9 之后仅允许改数据集文案，**不允许改评分或报告逻辑**。

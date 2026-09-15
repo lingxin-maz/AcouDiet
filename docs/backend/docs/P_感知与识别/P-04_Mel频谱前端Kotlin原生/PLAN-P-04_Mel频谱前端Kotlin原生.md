@@ -21,8 +21,8 @@
 | 8 | `test/native/patch_payload_type_test.dart` | `Float32List` 载荷类型断言 |
 | 9 | `test/native/mel_backend_switch_test.dart` | 两种后端可切换且同形状 |
 | 10 | `ai/scripts/mel_parity_test.py` | **跨语言对齐测试**（与 `PLAN-T-08` 共用，本 PLAN 为端侧出口） |
-| 11 | `docs/reports/p04_mel_bench.md` | 单 patch 耗时**实测产出** |
-| 12 | `docs/reports/p04_plan_s.md` | Plan-S 调研结论 + 触发时的降级记录 |
+| 11 | `records/reports/p04_mel_bench.md` | 单 patch 耗时**实测产出** |
+| 12 | `records/reports/p04_plan_s.md` | Plan-S 调研结论 + 触发时的降级记录 |
 | 13 | `shared/feature_config.json` 的 **Mel 顶层音频键**（`n_mels` / `mel_htk` / `mel_norm` / `pad_mode` / `power_to_db_ref` / `power_to_db_amin` / `top_db` / `normalization` / `normalization_epsilon` / `normalization_output_min` / `normalization_output_max` / `raw_mel_frames` / `n_frames` / `frame_selection` / `operation_order` / `n_fft` / `hop_length` / `fmin` / `fmax`）—— **SSOT 里没有 `mel` 对象** | 数值单一真源 |
 
 ## 2. 任务拆解（WBS）
@@ -101,10 +101,10 @@ class MelFrontend(private val cfg: MelConfig) {          // cfg 来自 feature_c
 - [ ] 交付物 1–13 全部存在且路径一致。
 - [ ] **D2 硬验收达成：Kotlin 输出 `[128, n_frames]` 数组**（`PLAN-00` §1 D2 行）。
 - [ ] `mel_parity_test.py` 在 D3 与 A 合跑通过（`atol=1e-3`）；**未通过则不得进入 D4**。
-- [ ] Plan-S 调研结论已归档至 `docs/reports/p04_plan_s.md`（含 D0 调研 + 是否触发的判定）；若触发，`SPEC-T-08` 判据口径已同步修改并留痕。
+- [ ] Plan-S 调研结论已归档至 `records/reports/p04_plan_s.md`（含 D0 调研 + 是否触发的判定）；若触发，`SPEC-T-08` 判据口径已同步修改并留痕。
 - [ ] `melVersion` 值已在 `feature_config` 与 `getCapabilities` 双侧一致。
 - [ ] `mel` 载荷确认使用 `Float32List`（非 `List<double>`、非 Base64）。
-- [ ] 单 patch 耗时实测值已写入 `docs/reports/p04_mel_bench.md`。
+- [ ] 单 patch 耗时实测值已写入 `records/reports/p04_mel_bench.md`。
 
 ## 6. 风险与降级
 | 风险 | 触发信号 | 降级动作 |

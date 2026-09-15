@@ -16,9 +16,9 @@
 | 3 | `app/lib/features/detection/widgets/unconfirmed_prediction.dart` | 未确认实时预测（灰显 + 「未确认」字样） |
 | 4 | `app/lib/features/detection/widgets/noise_gate_banner.dart` | 噪声 >65 dB 提示 + 一键切 Mode B（**判据为进场前人工 SOP 实测值，非自检项**，`SPEC-M-01 §7 A6`） |
 | 5 | `app/test/demo/demo_mode_a_test.dart` | SPEC §7 的 A1–A5、A9 自动化判据（**A6 已改为人工核对项，不再有自动化断言**） |
-| 6 | `docs/demo/D9_三模式实测记录.md` | Mode A 段；含 SPEC §7 A12 记录表 |
-| 7 | `docs/demo/evidence/D9_modeA_*.log` | 原始证据：`getDiagnostics()` 快照 + 事件时序日志 |
-| 8 | `docs/demo/现场SOP卡片.md` | 主方案 §9.2 六条 SOP 的现场可打印卡片（内容载体见 `PLAN-M-03` §1） |
+| 6 | `records/demo/D9_三模式实测记录.md` | Mode A 段；含 SPEC §7 A12 记录表 |
+| 7 | `records/demo/evidence/D9_modeA_*.log` | 原始证据：`getDiagnostics()` 快照 + 事件时序日志 |
+| 8 | `records/demo/现场SOP卡片.md` | 主方案 §9.2 六条 SOP 的现场可打印卡片（内容载体见 `PLAN-M-03` §1） |
 
 ## 2. 任务拆解（WBS）
 | # | 任务 | 产出 | 工时 | 依赖 |
@@ -30,7 +30,7 @@
 | 5 | 噪声门限提示与一键切 Mode B（**读人工实测 dB 值，不读自检项**）；`droppedPatches` 阈值提示；**现场处置表分支（含麦克风故障 → 带 `skipAudioRecord=true` 的 Mode B）** | 交付物 4 | 0.5 h | 任务 2、`SPEC-M-04` |
 | 6 | 自动化测试 A1–A5、A9 | 交付物 5 | 0.75 h | 任务 3、4 |
 | 7 | 真机 3 轮实测 + 记录表 + 证据归档（A10、A11） | 交付物 6、7 | 0.5 h | 任务 5；CP2 已通 |
-| 8 | 演示脚本 Mode A 段文案与口径复核（FF-25 / A7） | `docs/demo/现场SOP卡片.md` 第 7 项 | 0.25 h | C |
+| 8 | 演示脚本 Mode A 段文案与口径复核（FF-25 / A7） | `records/demo/现场SOP卡片.md` 第 7 项 | 0.25 h | C |
 
 ## 3. 技术方案
 > 与 `SPEC-M-01 §3` 契约一致；**不另立参数**。以下为骨架（≤30 行）。
@@ -94,8 +94,8 @@ class DemoController {
 - [ ] `SPEC-M-01 §7` 的 **A1–A5、A9 自动化判据全部通过**（命令退出码 0）；**A6 改为人工核对项**，随 A11/A12 一并验收。
 - [ ] A10 的**真机实测值已记录**（不是预测值），并标注「D9 实测产出」。
 - [ ] A11 现场核对表 **8 项** 100% 勾选并签字（含第 8 项：现场噪声已用外部工具实测并记录 dB 值 + 工具名）。
-- [ ] A12 记录表 ≥3 轮有效，产物路径 `docs/demo/D9_三模式实测记录.md` 与 `docs/demo/evidence/` 可点开。
-- [ ] `docs/demo/现场SOP卡片.md` 六条 SOP 齐备且可打印。
+- [ ] A12 记录表 ≥3 轮有效，产物路径 `records/demo/D9_三模式实测记录.md` 与 `records/demo/evidence/` 可点开。
+- [ ] `records/demo/现场SOP卡片.md` 六条 SOP 齐备且可打印。
 - [ ] 演示脚本 Mode A 段无「2 秒」类表述（A7 零命中）。
 - [ ] **现场处置表三分支均已在真机或 mock 上验证**（`SPEC-M-01 §6`）：设备类故障路径确实带上 `skipAudioRecord:true`（ADR-02），`ACD-INF-001` 路径转 Mode C。
 - [ ] 代码合入 D9 节点分支；**D10 之后不得再提交**（`PLAN-00 §4`）。

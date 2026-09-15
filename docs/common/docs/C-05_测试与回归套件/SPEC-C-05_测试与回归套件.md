@@ -47,7 +47,7 @@
 1. **分层**：Dart 单元（`app/test/`）→ 真机仪器（`app/integration_test/`）→ 离线脚本（`ai/scripts/`）→ 命令级检查（`rg`/`aapt`/`sqlite3`）→ 人工核对表。
 2. **五类必须覆盖**：① 跨功能一致性（逐字段等于 UI 值，不是"接近"）；② 划分无泄漏（主体级 + 撤回剔除）；③ 数值对齐（Python↔Kotlin Mel、Keras/PT↔TFLite）；④ 隐私回归（清理计数 0、无 BLOB、无网络权限）；⑤ 演示前回归（附表 A/B）。
 3. **运行矩阵与阻塞语义**：提交前只跑快集合、节点日跑全集合（见 `PLAN-C-05` §3）；任一断言失败不提交、不进节点验收，**禁止用 `skip:` 绕过**（必须跳过时须在文件内注明原因并登记 §10）。
-4. **取证**：全集合输出写入 `docs/compliance/C-05/`，作为 D10 材料的一部分。
+4. **取证**：全集合输出写入 `records/compliance/C-05/`，作为 D10 材料的一部分。
 
 ### 2.3 状态与状态迁移
 
@@ -83,7 +83,7 @@
 |---|---|---|---|
 | `app/test/`、`app/integration_test/` | Dart 单元/widget 测试、真机仪器测试 | `<被测对象>_test.dart` / `<场景>_test.dart`（lower_snake_case） | `domain/`、`data/`、`cfg/`、`ui/`；端到端闭环、清理计数、自检面板 |
 | `ai/scripts/` | 离线脚本与 Python 测试 | `test_<对象>.py`（pytest 可发现） | 划分、形状、parity、Mel 对齐 |
-| `docs/compliance/C-05/` | 测试取证输出 | `<节点>_<YYYYMMDD>_<套件>.txt` | 全集合输出与判读结论 |
+| `records/compliance/C-05/` | 测试取证输出 | `<节点>_<YYYYMMDD>_<套件>.txt` | 全集合输出与判读结论 |
 
 **命名硬规则**：①只用小写字母、数字、下划线；②测试名必须描述断言（`expect(actual, equals(expected))`），禁止 `test1`；③同一断言不得在两处重复实现。
 

@@ -25,8 +25,8 @@
 | 11 | `ai/scripts/test_dataset_shape.py` | 数据集形状与 SSOT 一致（判据 #4 前置） |
 | 12 | `ai/scripts/test_mel_crosslang.py` | Mel 跨语言对齐门禁（判据 #4） |
 | 13 | `ai/scripts/parity_test.py` | parity 门禁（判据 #5；`SPEC-T-08` 的实现载体） |
-| 14 | `docs/compliance/C-05/<节点>_<YYYYMMDD>_<套件>.txt` | 全集合运行输出与判读结论（字段见 `SPEC-C-05` §4.2） |
-| 15 | `docs/compliance/C-05/pre_demo_checklist_<YYYYMMDD>.md` | 附表 A + 附表 B 的现场打勾件 |
+| 14 | `records/compliance/C-05/<节点>_<YYYYMMDD>_<套件>.txt` | 全集合运行输出与判读结论（字段见 `SPEC-C-05` §4.2） |
+| 15 | `records/compliance/C-05/pre_demo_checklist_<YYYYMMDD>.md` | 附表 A + 附表 B 的现场打勾件 |
 
 > 交付物 #1~#13 为**测试实现文件**，本 PLAN 只登记路径与断言；实现由 A/B 在各自分支完成。
 
@@ -111,7 +111,7 @@ rg -n --glob '!**/build/**' -e 'http' -e 'dio' -e 'socket' -e 'WebSocket' -e 'ur
 - [ ] D3 Mel 对齐门禁与 D4 parity 门禁均通过并有归档输出
 - [ ] 隐私回归三项在真机上至少跑通一次（`SPEC-C-05` §2.4）
 - [ ] 一致性测试针对「当前生效数据集」，Track 1/2 切换后仍通过
-- [ ] 全集合运行报告字段齐全（§4.2），存放于 `docs/compliance/C-05/`
+- [ ] 全集合运行报告字段齐全（§4.2），存放于 `records/compliance/C-05/`
 - [ ] 附表 A（5 项）与附表 B（8 项）在 D9 前完成一次完整演练并签字
 - [ ] 团队协作规则四条禁令写入 README 或站会记录
 

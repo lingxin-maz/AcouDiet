@@ -26,10 +26,12 @@
 | 13 | `test/domain/confirm_dedup_test.dart` | 会话内同类去重 |
 | 14 | `test/domain/vote_aggregator_timing_test.dart` | 首次确认下界（不含预测值） |
 | 15 | `test/domain/vote_aggregator_lifecycle_test.dart` | 会话边界释放与 `reset()` |
-| 16 | `docs/reports/p06_threshold_calibration.md` | FF-20b 标定过程 + 直方图（**D3 实测产出**） |
+| 16 | `records/reports/p06_threshold_calibration.md` | FF-20b 标定过程 + 直方图（**D3 实测产出**） |
 | 17 | `ai/scripts/assert_no_hardcoded_thresholds.py` | 阈值硬编码扫描 |
 | 18 | `ai/scripts/check_thresholds_calibrated.py` | 标定完成度断言 |
-| 19 | `shared/feature_config.json` 的 `voting` 段（经 `PLAN-C-03`） | `emaWindow`/`emaAlpha`/`confirmConsecutivePatches`/`tauConfirm`/`tauLow` 的单一真源 |
+| 19 | `shared/feature_config.json` 的 `voting` 段（经 `PLAN-C-03`） | `emaWindow`/`emaAlpha`/`confirmConsecutivePatches`/`tauConfirm`/`tauLow` 的单一真源；`ADR-47` 追加 `confirmation_mute_seconds`（FF-20d） |
+| 20 | `test/domain/confirmation_mute_test.dart` | FF-20d 会话内静默窗口：窗口边界 / 按 `classId` / 按会话 / 不自动落库 / 答复同步生效（`ADR-47`） |
+| 21 | `tool/session_tests.dart` 的 `_confirmationMuteChecks()` | 同一批断言的**离线等价物** + `negative control` 对照组（未作答的同一脚本仍在提问） |
 
 ## 2. 任务拆解（WBS）
 | # | 任务 | 产出 | 工时 | 依赖 |
@@ -44,6 +46,7 @@
 | 8 | FF-20b 阈值标定（直方图 + 报告），与 A 同批 | 交付物 16 | 1.5 h | D3 数据 |
 | 9 | 静态扫描 + 标定断言脚本 | 交付物 17/18 | 0.5 h | 8 |
 | 10 | 与 `PLAN-P-02` / `PLAN-U-02` 联调 | 回归记录 | 0.5 h | 4、7 |
+| 11 | 会话内同级静默窗口（FF-20d，`ADR-47`）+ 负例对照 | 交付物 20/21 | 1 h | 7 |
 
 **合计：9 h**，计入域 P 总工时（`PLAN-00` §5）。
 
@@ -83,6 +86,7 @@ class VoteAggregator {
 5. 聚合必须与 `run()` 同 isolate 执行（`API-02` §4；`API-00` §3.7），状态不跨 isolate 复制。
 6. 落库去重键 = `sessionId + classId`，冲突按 `ACD-DB-002` 忽略；`smoothedProbs` **禁止入库**。
 7. 降级（步长 → 1.0 s）不改变本功能的语义，只改变 patch 到达间隔。
+8. **同级静默窗口（FF-20d）落在会话状态机，不在聚合器**：`VoteStage` 不新增值、`AggregatedDecision` 不新增字段、`VoteAggregator.add()` 签名不变；静默按 `classId` 记账（`Map<int, _ClassMute>`），窗口取自 `FeatureConfig.votingConfirmationMuteSeconds`，`start()` 清空。被静默类别的上报值只有两种：`confirmed`（用户答「是」）与 `observing + classId=null`（用户答「否」），后者同时挡住自动落库。时钟经构造函数注入（`int Function()? clock`），生产传 `null`。
 
 ## 4. 测试与验证
 | 测试 | 类型 | 断言 | 何时跑 |
@@ -99,17 +103,20 @@ class VoteAggregator {
 | `confirm_dedup_test` | Dart 单测 | 同 `sessionId + classId` 只落库 1 次 | D6 |
 | `vote_aggregator_timing_test` | Dart 单测 | `confirmed` 时刻 ≥ 第 `M` 个 patch 的 `tStartMs + 4.096 s`（**不含预测值**） | D6 |
 | `vote_aggregator_lifecycle_test` | Dart 单测 | `sessionEnded` 后拒绝 `add()`；新会话从初始态起步 | D6 |
+| `confirmation_mute_test` | Dart 单测（注入时钟与解码器） | `T+179999 ms` 仍 `shouldAskUser == false`；`T+180000 ms` 恢复 `true`；另一 `classId` 不受影响；新会话不继承；窗口内 `confirmed` 不落库 | D6 每次提交 |
+| `tool/session_tests.dart` → `_confirmationMuteChecks()` | 离线套件 + 负例对照 | 与上同源；对照组（**未作答**、同一解码器同一脚本）仍 `shouldAskUser == true`。**把 `_applyMute` 的调用注释掉后该组必须有 ≥ 6 项转红**（实测 8 项） | D6 每次提交 |
 | `assert_no_hardcoded_thresholds.py` | 静态扫描 | 命中数 == 0 | D6 / D10 |
 | `check_thresholds_calibrated.py` | 脚本 | 标定报告存在且三档阈值来自配置 | D6 / D9 |
 | FF-20b 直方图标定 | 离线实验 | 自采跨域集置信度分布 + 三档阈值选点过程写入报告（**实测产出**） | **D3** |
 | 连续吃 30 s 稳定性 | 真机手测（人工核对表） | 结果稳定不闪烁（`PLAN-00` D6 硬验收）；核对表见标定报告 | **D6** |
 
 ## 5. 完成定义（DoD）
-- [ ] `SPEC-P-06` §7 全部 16 条判据通过（**必需项**）。
-- [ ] 交付物 1–18 全部存在且路径一致。
-- [ ] `API-02` §4 的 `VotingConfig` / `VoteStage` / `AggregatedDecision` / `VoteAggregator` 签名与实现逐字一致；`VoteStage` 五值判定与 `API-02` §4 判定表逐行一致。
-- [ ] `voting` 段（`emaWindow`/`emaAlpha`/`confirmConsecutivePatches`/`tauConfirm`/`tauLow`）已进 `feature_config` 并完成 `PLAN-C-03` 变更传播登记；`API-02` §8 的 4 个新增错误码（含 `ACD-INF-004`）已补登 `API-00` §3.5。
-- [ ] **FF-20b 标定完成**：D3 用自采跨域测试集的置信度分布直方图标定三档阈值，过程写进 `docs/reports/p06_threshold_calibration.md`。
+- [ ] `SPEC-P-06` §7 全部 19 条判据通过（**必需项**；#15–#19 为 `ADR-47` 的 FF-20d 静默窗口）。
+- [ ] 交付物 1–21 全部存在且路径一致。
+- [ ] `API-02` §4 的 `VotingConfig` / `VoteStage` / `AggregatedDecision` / `VoteAggregator` 签名与实现逐字一致；`VoteStage` 五值判定与 `API-02` §4 判定表逐行一致。**FF-20d 不得改动这四处**（窗口在会话层）。
+- [ ] `voting` 段（`emaWindow`/`emaAlpha`/`confirmConsecutivePatches`/`tauConfirm`/`tauLow`/`confirmation_mute_seconds`）已进 `feature_config` 并完成 `PLAN-C-03` 变更传播登记；`API-02` §8 的 4 个新增错误码（含 `ACD-INF-004`）已补登 `API-00` §3.5。
+- [ ] **FF-20d 静默窗口**：点「否」后同一次检测内该 `classId` 三分钟内不再提问、不再命名、不自动落库；点「是」后同样不再追问且只落一条记录；新会话不继承（`ADR-47`）。
+- [ ] **FF-20b 标定完成**：D3 用自采跨域测试集的置信度分布直方图标定三档阈值，过程写进 `records/reports/p06_threshold_calibration.md`。
 - [ ] **D6 硬验收**：连续吃 30 s，结果稳定不闪烁。
 - [ ] `X-02` 降级被固化：不存在「任意更改类别」的 API 或 UI 入口（测试 + 代码审查）。
 - [ ] 「首次确认约 4–5 s」仅以 FF-20a 口径表述；**任何材料中不出现「2 秒内出结果」**（FF-25）。
@@ -120,7 +127,9 @@ class VoteAggregator {
 |---|---|---|
 | 三档阈值标定缺数据（D3 自采样不足） | D3 晚直方图样本量不够 | 用 FF-20 的初值上线，标定推迟到 D6 前补齐；**报告中如实标注「未完成标定」**，不得编造数据 |
 | 确认结果闪烁（stage 反复跳） | D6 手测发现 | 加严 `τ_confirm`（须回写 `feature_config` 并走 `PLAN-C-03`）；**不得**改 `M` 与 `α` 之外的口径而不留痕 |
-| `lowConfidence` 频繁询问打扰用户 | 真机体验 | 由 `U-02` 控制询问频次（同 `classId` 只问一次）；聚合器不改判据 |
+| `lowConfidence` 频繁询问打扰用户 | 真机体验 | **已实现**：会话层按 `FF-20d` 静默已作答的 `classId`（同 `classId` 三分钟内只问一次）；聚合器不改判据 |
+| 静默窗口把正常识别也静音了（「否」错点了） | 真机体验 / 用户反馈 | 窗口只有 180 s 且**不跨会话**：`stop()` 后再开始就是干净的；另可让用户重开一次检测立即解除。**不得**把窗口做成永久或全局 |
+| 静默期间同一类别又被自动落库 | 饮食记录里出现刚被否掉的食物 | 窗口内该类别不得上报 `confirmed`（`_applyMute` 的 `denied` 分支）；`confirmation_mute_test.dart` 的「不得被自动落库」锁死 |
 | 与 `PLAN-P-02` 的静默语义分歧 | 联测 `ema`/`consecutiveCount` 行为不一致 | 以 `API-02` §4 为唯一口径（静默仍进 EMA、连续计数不变），三处文档同时对齐后再改代码 |
 | `add()` 签名裁定迟迟未定 | D6 初仍按临时约定实现 | 采用「沿用最近结果」临时约定（本 PLAN 已如此设计），签名一旦裁定只改适配层，不动算法 |
 | D6 与 `PLAN-P-02` 争抢同一人日 | D6 中午级别 1/2 未通 | 优先保证 Level 1+2（CP4 与 D8 完整闭环依赖它），Level 3 的二选一交互可借 `U-02` 的占位实现先上线 |

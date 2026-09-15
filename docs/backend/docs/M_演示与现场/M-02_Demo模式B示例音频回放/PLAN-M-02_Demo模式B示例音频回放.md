@@ -13,14 +13,14 @@
 |---|---|---|
 | 1 | `app/assets/demo_audio/*.wav` | 6 类 × 5 段 = **30 段**自采 wav，随 APK 打包 |
 | 2 | `app/assets/demo_audio/manifest.json` | SPEC-M-02 §4.1 表结构的 30 行实例（单一真源） |
-| 3 | `docs/demo/示例音频资产清单.md` | 人可读版清单表（类别 / 文件名 / 时长 / 采样率 / 设备 / 日期 / 备注） |
+| 3 | `records/demo/示例音频资产清单.md` | 人可读版清单表（类别 / 文件名 / 时长 / 采样率 / 设备 / 日期 / 备注） |
 | 4 | `app/lib/features/demo/sample_injector.dart` | wav 解码 + 分片 + 实时节拍投喂（`feedRealtime=true`） |
 | 5 | `app/lib/features/demo/demo_controller.dart` | `switchTo(sampleAudio)` / `startSamplePlayback({required String assetPath})` |
 | 6 | `tool/verify_demo_audio.dart` | 资产完整性 + 清单一致性校验器（退出码判定） |
 | 7 | `app/test/demo/injection_equivalence_test.dart` | B1 / B3 / B4 / B5 |
 | 8 | `app/test/demo/demo_mode_b_test.dart` | B6 / B8 |
-| 9 | `docs/demo/D9_三模式实测记录.md` | Mode B 段；含 SPEC §7 B13 记录表 |
-| 10 | `docs/demo/evidence/D9_modeB_*.log` | 逐片 `injectPcm` 时间戳 + Top-1/置信度 |
+| 9 | `records/demo/D9_三模式实测记录.md` | Mode B 段；含 SPEC §7 B13 记录表 |
+| 10 | `records/demo/evidence/D9_modeB_*.log` | 逐片 `injectPcm` 时间戳 + Top-1/置信度 |
 
 > ⚠️ **本 PLAN 不产出任何实现代码文件中的音频数据**；30 段 wav 由 C 用真机自采（`SPEC-C-02` 的同意书范围），不得来源于公开数据集（来源必须可追溯，见 SPEC §4.1 的 `device` / `capturedOn`）。
 
@@ -92,8 +92,8 @@ Future<void> startSamplePlayback({required String assetPath}) async {
 
 ## 5. 完成定义（DoD）
 - [ ] `SPEC-M-02 §7` 的 **B1–B11、B14、B15 全部判据通过**（脚本退出码 0 / 测试全绿）。
-- [ ] **B1 注入等价性在 ≥3 段示例上真机复现**，结果写入 `docs/demo/D9_三模式实测记录.md`（标注「D9 实测产出」）。
-- [ ] `manifest.json` 30 行无空必填列；`docs/demo/示例音频资产清单.md` 可与之一一对照。
+- [ ] **B1 注入等价性在 ≥3 段示例上真机复现**，结果写入 `records/demo/D9_三模式实测记录.md`（标注「D9 实测产出」）。
+- [ ] `manifest.json` 30 行无空必填列；`records/demo/示例音频资产清单.md` 可与之一一对照。
 - [ ] 静态扫描证明**不存在播放通路**（B2）与**不存在 inject 专属推理/聚合分支**（B3）。
 - [ ] B12 现场核对表 **8 项** 100% 勾选并签字；B13 记录表 ≥6 轮无空列。
 - [ ] **`SPEC-M-02 §10` 开放问题 1、2 已按 ADR-02 / ADR-01 关闭并回写本 SPEC**：Mode B 固定 `skipAudioRecord:true`（B14 通过）；注入路径固定 `includeEnvelope:true` 且包络长度 819（B15 通过）；演示记录写入 `DietRecord.source="demo"` 且与 Track 1 互不混算。

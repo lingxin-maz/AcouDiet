@@ -22,7 +22,7 @@
 | 9 | `ai/scripts/assert_kcal_not_isolated.py` | 孤立热量数字扫描 |
 | 10 | `ai/scripts/assert_food_granularity.py` | 超能力命名黑名单 + 6 键计数扫描 |
 | 11 | `ai/scripts/assert_no_medical_claims.py` | 医疗宣称词表扫描 |
-| 12 | `docs/reports/p08_foods_kb.md` | 份量/热量的**引用来源**与文件体积实测记录 |
+| 12 | `records/reports/p08_foods_kb.md` | 份量/热量的**引用来源**与文件体积实测记录 |
 | 13 | `pubspec.yaml` 的 assets 声明（与 `PLAN-C-04` 对齐） | 打包配置 |
 
 ## 2. 任务拆解（WBS）
@@ -107,7 +107,7 @@ class FoodKnowledgeBaseImpl implements FoodKnowledgeBase {
 - [ ] **`API-02` §6 的 `FoodInfo` / `FoodKnowledgeBase`（含 `all`）签名逐字一致**；错误码只用 `ACD-IO-002`（加载/校验）与 `ACD-KB-001`（查询键），且二者已补登 `API-00` §3.5。
 - [ ] **D1 硬验收**：`PLAN-00` §1 D1 行的「三方接口冻结」中，本功能的字段契约已冻结并以 `API-04` §2 为准。
 - [ ] 顶层键集合 == `class_labels`；6 条记录的 `label`/`zhName`/`attribute` 与 FF-19 逐字一致。
-- [ ] 每个 `portionKcal` 与 `portionDesc` 都有**可追溯来源**并写入 `docs/reports/p08_foods_kb.md`。
+- [ ] 每个 `portionKcal` 与 `portionDesc` 都有**可追溯来源**并写入 `records/reports/p08_foods_kb.md`。
 - [ ] 三个静态扫描脚本命中数全为 0，且已接入 `C-04` 的出包前置检查。
 - [ ] 越界与未注册 label 查询抛 `ACD-KB-001`（不返回 `null`、不回退默认条目）；`load` 原子替换已测。
 - [ ] 无网络依赖（无 HTTP 客户端、无营养 API）；知识库不写入 SQLite。

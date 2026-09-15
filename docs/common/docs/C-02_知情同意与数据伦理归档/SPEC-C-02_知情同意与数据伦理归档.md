@@ -18,10 +18,10 @@
 
 | # | 内容 | 产物（路径级） |
 |---|---|---|
-| 1 | 知情同意书模板（必含 §4.1 的 7 条） | `docs/compliance/C-02/consent_form_v1.0.md` |
-| 2 | 签署件扫描归档（**姓名打码**） | `docs/compliance/C-02/scans/<subjectId>_consent_masked.pdf` |
-| 3 | 志愿者归档清单（编号 / 段数 / 类别覆盖 / 采集日期 / 同意书路径） | `docs/compliance/C-02/consent_registry.md` |
-| 4 | 撤回权执行记录（请求时间、删除范围、完成确认） | `docs/compliance/C-02/withdraw_log.md` |
+| 1 | 知情同意书模板（必含 §4.1 的 7 条） | `records/compliance/C-02/consent_form_v1.0.md` |
+| 2 | 签署件扫描归档（**姓名打码**） | `records/compliance/C-02/scans/<subjectId>_consent_masked.pdf` |
+| 3 | 志愿者归档清单（编号 / 段数 / 类别覆盖 / 采集日期 / 同意书路径） | `records/compliance/C-02/consent_registry.md` |
+| 4 | 撤回权执行记录（请求时间、删除范围、完成确认） | `records/compliance/C-02/withdraw_log.md` |
 | 5 | 招募 5–10 名志愿者；**先签后用**（未签不使用其数据，风险 R-11） | 签署件数 ≥3（D1 结束最低线） |
 | 6 | R-7 兜底：D1 结束仍 <3 名志愿者 → 组内成员自录，**仍需签同意书** | 归档清单中标注数据来源为组内自录 |
 | 7 | 提交竞赛材料时附上已签署扫描件（姓名打码）；并登记 `API-05` §11 可携带性缺口 | 材料清单第 1 项；本文档 §10 #1 |
@@ -51,7 +51,7 @@
 2. 逐条口头讲解 §4.1 的 7 条内容并答疑；向志愿者说明**不采集人声对话内容**与**随时可撤回**。
 3. 志愿者签署（手写签名 + 日期）；项目组签署人同页签署。
 4. 分配匿名编号 `P<两位序号>`（格式见 `API-00` §3.4），**编号一经分配不再复用、不再改写**。
-5. 扫描签署件，对姓名与联系方式区域**打码**，落到 `docs/compliance/C-02/scans/`。
+5. 扫描签署件，对姓名与联系方式区域**打码**，落到 `records/compliance/C-02/scans/`。
 6. 在 `consent_registry.md` 登记一行（字段见 §4.2），登记完成后方可开始采集。
 7. 采集按 `ai/data/raw/<subjectId>/<yyyymmdd>_<class>_<seq>.wav` 命名（`subjectId` 即 `P0x`）；提交竞赛材料时把打码扫描件作为附录第 1 项。
 
@@ -117,12 +117,12 @@ RECRUITED ──签署──▶ CONSENTED ──采集──▶ COLLECTED ──
 | `scopeVersion` | string | 同意书模板版本（如 `v1.0`） | 否 |
 | `sourceType` | enum | `volunteer` / `team_member`（R-7 兜底） | 否 |
 | `segmentCount` | int | `≥0` | 否 |
-| `consentScanPath` | string | `docs/compliance/C-02/scans/...` | 否 |
+| `consentScanPath` | string | `records/compliance/C-02/scans/...` | 否 |
 | `voiceRemovedCount` | int | `≥0`（剔除的人声片段数） | 否 |
 | `status` | enum | §2.3 的状态枚举 | 否 |
 | `withdrawnAtMs` | int64 | epoch 毫秒（UTC，`API-00` §3.2） | 是 |
 
-> **无对应 `docs/common/docs_api/schemas/*.schema.json`**：本功能不新增 schema 文件；建议后续补机器可读版本。**模板路径冲突提示**：主方案 §5.1 的仓库结构写有 `docs/05_伦理与知情同意.md`，本文档以 `docs/compliance/C-02/` 为唯一权威位置，二者关系见 §10 #4。
+> **无对应 `docs/common/docs_api/schemas/*.schema.json`**：本功能不新增 schema 文件；建议后续补机器可读版本。**模板路径冲突提示**：主方案 §5.1 的仓库结构写有 `docs/05_伦理与知情同意.md`，本文档以 `records/compliance/C-02/` 为唯一权威位置，二者关系见 §10 #4。
 
 ## 5. 参数与常量
 
@@ -147,10 +147,10 @@ RECRUITED ──签署──▶ CONSENTED ──采集──▶ COLLECTED ──
 
 | # | 判据 | 验证方式（命令/测试名） | 通过阈值 |
 |---|---|---|---|
-| 1 | 同意书模板存在且 7 条齐全 | `Select-String -Path docs/compliance/C-02/consent_form_v1.0.md -Pattern '^\| [1-7] \|'` 计数 | **计数 == 7** |
+| 1 | 同意书模板存在且 7 条齐全 | `Select-String -Path records/compliance/C-02/consent_form_v1.0.md -Pattern '^\| [1-7] \|'` 计数 | **计数 == 7** |
 | 2 | 关键条款措辞在位 | 同文件 `-Pattern '撤回权'`、`-Pattern '不采集人声对话内容'` | 各 **≥1** 命中 |
 | 3 | 归档清单存在且字段齐全 | `Select-String -Path .../consent_registry.md -Pattern 'subjectId\|consentScanPath\|status'` | 三个字段名各 **≥1** 命中 |
-| 4 | 签署件数量达最低线 | `Get-ChildItem docs/compliance/C-02/scans/*_consent_masked.pdf` 计数 | **≥3**（D1 结束） |
+| 4 | 签署件数量达最低线 | `Get-ChildItem records/compliance/C-02/scans/*_consent_masked.pdf` 计数 | **≥3**（D1 结束） |
 | 5 | 签署件姓名已打码 | 人工核对表（下表） | 全部 5 项通过 |
 | 6 | 先签后用（时间序） | 人工核对表：每名志愿者的 `signedDate` **早于**其首次采集日期 | 全部志愿者通过 |
 | 7 | 清单行数与志愿者数一致 | 清单数据行数 == 实际 `ai/data/raw/P*` 目录数 | 相等 |
@@ -193,7 +193,7 @@ RECRUITED ──签署──▶ CONSENTED ──采集──▶ COLLECTED ──
 | 1 | **`API-05` §11 合规提示**：个保法下「可携带权」要求提供获取与转移个人信息的途径，v1.0 无任何导出途径（`X-03` 已裁剪） | 同意书第 5 条只覆盖「删除」，不覆盖「获取」；PPT 不得自称完全合规 | C + A |
 | 2 | 是否需监护人条款（若出现 <18 岁志愿者） | 影响同意书条款数（当前 7 条） | C |
 | 3 | 撤回后「已训练权重」的处置：本期不重训，只记入下一版 | 影响 `withdraw_log.md` 的措辞与风险登记 | A+B+C |
-| 4 | 权威模板路径：`docs/compliance/C-02/consent_form_v1.0.md` 与主方案 §5.1 的 `docs/05_伦理与知情同意.md` 需二选一 | 避免两份真相 | C + 文档负责人 |
+| 4 | 权威模板路径：`records/compliance/C-02/consent_form_v1.0.md` 与主方案 §5.1 的 `docs/05_伦理与知情同意.md` 需二选一 | 避免两份真相 | C + 文档负责人 |
 | 5 | 同意书版本号机制（`scopeVersion`）在条款变更时是否需重签 | 影响已签数据的可用性 | C |
 
 **文档结束**

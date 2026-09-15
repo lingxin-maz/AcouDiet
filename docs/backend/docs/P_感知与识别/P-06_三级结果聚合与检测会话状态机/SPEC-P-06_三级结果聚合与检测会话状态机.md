@@ -62,11 +62,17 @@
 8. `smoothedConfidence < tauLow` 且 EMA 已成形 → `stage = observing`，`shouldAskUser = false`，**不写日志**（`API-02` §4 判定表第二行）。
 9. 有效样本数 `== 0`（会话开始或 `reset()` 后）→ `stage = none`，`classId = null`、`label = null`、`smoothedProbs = null`、`shouldAskUser = false`。EMA 样本数 `< emaWindow` 而有效样本数 `> 0` → `stage = observing`（UI 只显示灰色实时预测）。
 10. **二选一确认（`X-02` 降级后的唯一「手动」能力）**：UI 呈现「疑似 X，请确认？」，用户只能选「是 / 否」。选「是」→ 该 `classId` 视为 `confirmed` 并触发记录生成；选「否」→ 不改类别、不写日志；**不得弹出类别选择列表**。
-11. `confirmed` 一旦达成，在会话内保持，直到会话结束或出现不同 `top1` 连续 M 次（后者按步骤 6 重新裁定）；同一会话同一 `classId` 只生成一条记录。
-12. 会话结束时 `reset()`；下一次会话必须从 `none` 起步。
+11. **同级静默窗口（FF-20d，`ADR-47`）**：答复**同步生效**——`answerConfirmation()` / `rejectSuggestion()` 返回时，会话状态就已是裁定后的值，页面不需要等下一个 patch。此后 `confirmation_mute_seconds`（180 s）内，**同一 `classId`** 不得再次进入 `lowConfidence`：
+    - 选「是」→ 该类别在该窗口内按 `confirmed` 上报（`shouldAskUser = false`）；用户的答复本身就是结果，记录已生成。
+    - 选「否」→ 该类别在该窗口内**没有任何可主张的结果**：上报 `observing` 且 `classId = null`、`label = null`、`shouldAskUser = false`，并且**不得自动落库**（把用户刚否掉的类别自动记进饮食记录，等于把「否」撤销）。
+    - 窗口按 `classId` 记账：**其他类别不受牵连**，窗口内照常提问与确认。
+    - 窗口到期后**不再静默**（不是永久静音），原始裁定原样返回，新证据可以重新赢得提问权。
+    - 窗口是**会话内**状态：不落盘、不入库、不参与握手；新会话从零开始。
+12. `confirmed` 一旦达成，在会话内保持，直到会话结束或出现不同 `top1` 连续 M 次（后者按步骤 6 重新裁定）；同一会话同一 `classId` 只生成一条记录。
+13. 会话结束时 `reset()`；下一次会话必须从 `none` 起步。
 
 **检测会话状态机（Dart 侧）**
-13. Dart 侧镜像 `API-01` §4 的状态；`sessionEnded` 到达后执行收尾：若存在未落库的 `confirmed`，由 `D-01`/`D-02` 在**一个事务**内提交（`API-00` §3.8）。
+14. Dart 侧镜像 `API-01` §4 的状态；`sessionEnded` 到达后执行收尾：若存在未落库的 `confirmed`，由 `D-01`/`D-02` 在**一个事务**内提交（`API-00` §3.8）。
 
 ### 2.3 状态与状态迁移
 按 `API-02` §4 判定表**按序判定，先命中者胜**：
@@ -79,7 +85,7 @@
 | `lowConfidence` | EMA 已成形且 `tauLow ≤ p < tauConfirm` | Top-1 | **`true`** |
 | `confirmed` | 连续 M 个 patch Top-1 不变且 p ≥ `tauConfirm` | Top-1 | `false` |
 
-**迁移触发**：`observing → unconfirmed/lowConfidence/observing`（EMA 成形时按 p 再判定）；`unconfirmed → confirmed`（连续达 M）；`lowConfidence → confirmed`（用户选「是」或 p 回升且连续达 M）；`lowConfidence → unconfirmed`（用户选「否」）；`confirmed → unconfirmed`（Top-1 变化）；`任意 → none`（`reset()` / 会话结束）。
+**迁移触发**：`observing → unconfirmed/lowConfidence/observing`（EMA 成形时按 p 再判定）；`unconfirmed → confirmed`（连续达 M）；`lowConfidence → confirmed`（用户选「是」或 p 回升且连续达 M）；`lowConfidence → observing`（用户选「否」，见 §2.4 与 `FF-20d`）；`confirmed → observing`（`FF-20d` 窗口内用户选「否」时，见步骤 11）；`confirmed → unconfirmed`（Top-1 变化）；`任意 → none`（`reset()` / 会话结束）。
 
 **会话级状态机**（权威定义在 `API-01` §4，L1）：
 - 收到 `patch(seq)` 且 `seq` 与上一次不连续 → 连续计数清零、EMA 保留，并记诊断；**不得**自行补号。
@@ -91,7 +97,7 @@
 |---|---|
 | 会话时长 < 4.096 s | 无 patch，`stage == none`；结束时无记录 |
 | 全程静默 | EMA 因沿用最近结果而可能成形，但连续计数不变；FF-21a 到达后 `sessionEnded(silence90s)`，无记录 |
-| p 长期在 `[tauLow, tauConfirm)` 抖动 | `shouldAskUser` 反复置真；由 `U-02` 去重呈现（同一 `classId` 只问一次），**聚合器不负责去重** |
+| p 长期在 `[tauLow, tauConfirm)` 抖动 | `shouldAskUser` 反复置真；由 `FF-20d` 会话内静默窗口去重（同一 `classId` 在 `confirmation_mute_seconds` 内只问一次，`ADR-47`），**聚合器本身仍不负责去重** |
 | `r.probs.length ≠ 6` | `ACD-INF-002`（fail fast，说明上游 `run()` 已违约，`API-02` §4） |
 | 同一 `seq` 重复投递 / `reset()` 在会话中调用 | 幂等 / 状态断言 | 重复 `seq` 不改变 EMA 与计数；`reset()` 仅允许会话边界调用，会话中调用视为缺陷（测试断言） |
 
@@ -121,6 +127,15 @@ class VoteAggregator {
 class VotingConfig { int emaWindow; double emaAlpha; int confirmConsecutivePatches; double tauConfirm; double tauLow; }
 ```
 
+**`FF-20d` 落在哪一层（`ADR-47`）**：静默窗口**不在**聚合器里。`VoteStage` 没有、也不得新增 `rejected` 值（验收标准 #3），`AggregatedDecision` 的字段与 `VoteAggregator.add()` 的签名一个字节都没改；上面那张表在 `ADR-47` 前后完全一致。窗口是**会话状态机**（`DetectionSession`，`API-01` §4 的 L4 实现）的会话内状态，它才是拥有「是 / 否」迁移的组件，因此也只在那里新增了两个成员：
+
+| 成员 | 作用 |
+|---|---|
+| `DetectionSession({int Function()? clock})` | 可注入时钟，唯一用途是让验收测试不需要真的睡三分钟；生产传 `null` 即系统时钟 |
+| `DetectionSession.muteWindowMs` | 由 `FeatureConfig.votingConfirmationMuteSeconds` 推导（`×1000`），禁止字面量 |
+
+`AggregatedDecision` 本身**不新增字段**（例如「被静默」标记）：会话上报的静默结果就是 `observing` + `classId = null`，这是 §2.3 判定表里已有的合法行。
+
 ## 4. 数据契约
 | 项 | 类型 | 值域 / 约束 |
 |---|---|---|
@@ -132,7 +147,7 @@ class VotingConfig { int emaWindow; double emaAlpha; int confirmConsecutivePatch
 | `shouldAskUser` | `bool` | **仅** `lowConfidence` 为 `true`（唯一允许弹二选一的入口） |
 | 确认产出的记录字段 | — | 由 `D-01` 的 `DietRecord` 定义；本功能只提供 `sessionId`/`classId`/`label`/时间 |
 | 三档阈值 | `double` | 来自 `VotingConfig`（FF-20b 标定后写入）；代码只读不写 |
-| 标定产物 | 文件 | `docs/reports/p06_threshold_calibration.md`（直方图 + 标定过程，**D3 实测产出**） |
+| 标定产物 | 文件 | `records/reports/p06_threshold_calibration.md`（直方图 + 标定过程，**D3 实测产出**） |
 
 ## 5. 参数与常量
 | 项 | 引用 |
@@ -142,6 +157,7 @@ class VotingConfig { int emaWindow; double emaAlpha; int confirmConsecutivePatch
 | 首次确认耗时口径 | FF-20a（≈4–5 s；**禁止对外宣称「2 秒内出结果」**，FF-25） |
 | 三档阈值标定要求 | FF-20b（D3，自采跨域测试集，直方图标定，过程入测试报告） |
 | 跨 patch 状态保持 | FF-20c |
+| 同级静默窗口（`confirmation_mute_seconds` = `180` s） | **FF-20d**（`ADR-47`）；**必须取自 `voting.confirmation_mute_seconds`，不得硬编码**；按 `classId` 记账、按会话计时 |
 | 推理滑窗步长（默认 / 降级） | FF-12 / FF-12 的 2 倍（`SPEC-P-05` §6） |
 | 静默结束 / 类别表 | FF-21a（由 `SPEC-P-02` 判定）/ FF-19 |
 | `n_frames` | FF-11（**`n_frames = 128`**；旧值 ~~`n_frames = 129`~~ → 已由 `ADR-21`（2026-09-12）修订，`129` 现为 `raw_mel_frames`；见 FF-11 / `ADR-21`） |
@@ -154,7 +170,7 @@ class VotingConfig { int emaWindow; double emaAlpha; int confirmConsecutivePatch
 | `seq` 重复 | 与上次相等 | 幂等忽略 | 无 |
 | `probs.length ≠ 6` | 长度断言 | `ACD-INF-002`（fail fast） | 无（开发期可见） |
 | 静默 patch | `voiced = false` | 仍更新 EMA；连续计数不变 | 无 |
-| 长时间停在 `lowConfidence` | `shouldAskUser` 持续为真 | 聚合器不强推；由 `U-02` 控制询问频次 | 「疑似 X，请确认？」（仅二选一） |
+| 长时间停在 `lowConfidence` | `shouldAskUser` 持续为真 | 聚合器不强推；会话按 `FF-20d` 静默已作答的 `classId` | 「疑似 X，请确认？」（仅二选一；同一类别三分钟内只问一次） |
 | p 长期 < `tauLow` | `stage == observing` 持续 | **不写日志**；会话结束只留 `SessionSummary` | 「未识别到明确食物」（`U-02` 依 `smoothedConfidence < tauLow` 二次判断） |
 | 配置缺三档阈值 | 启动加载断言 | `ACD-CFG-001`，禁止进入检测页 | 「配置不一致，请重装应用」 |
 | 落库唯一约束冲突 | `ACD-DB-002` | 按 `sessionId + classId` 去重后忽略 | 无 |
@@ -175,8 +191,13 @@ class VotingConfig { int emaWindow; double emaAlpha; int confirmConsecutivePatch
 | 10 | 二选一确认语义（X-02 降级） | `flutter test test/domain/binary_confirm_test.dart` | 答复接口只接受「是/否」；**不存在**可传入任意 `classId` 的 API（签名/反射断言） |
 | 11 | 会话内同类去重 | `flutter test test/domain/confirm_dedup_test.dart` | 同一 `sessionId + classId` 只触发 1 次落库 |
 | 12 | 首次确认不早于物理下界 | `vote_aggregator_timing_test.dart` | `confirmed` 时刻 ≥ 第 `M` 个 `voiced=true` patch 的 `tStartMs + 4.096 s`；**实测中位数在 D6 产出**并写入报告，不写预测值 |
-| 13 | 阈值标定已完成 | `python ai/scripts/check_thresholds_calibrated.py` | `tauConfirm`/`tauLow` 来自 `feature_config.voting`，且 `docs/reports/p06_threshold_calibration.md` 存在并含直方图文件引用 |
+| 13 | 阈值标定已完成 | `python ai/scripts/check_thresholds_calibrated.py` | `tauConfirm`/`tauLow` 来自 `feature_config.voting`，且 `records/reports/p06_threshold_calibration.md` 存在并含直方图文件引用 |
 | 14 | 无硬编码阈值 / 会话结束释放状态 | `python ai/scripts/assert_no_hardcoded_thresholds.py` + `vote_aggregator_lifecycle_test.dart` | 命中数 == 0；`sessionEnded` 后拒绝 `add()`，`reset()` 后首次 `add()` 返回 `none` |
+| 15 | **同级静默窗口（FF-20d）**：点「否」后同一次检测内该类别 180 s 内不再提问 | `flutter test test/domain/confirmation_mute_test.dart` 的 `点「否」之后，同一次检测的三分钟内不再出现该判断结果` + `tool/session_tests.dart` 的 `P-06 / FF-20d confirmation mute window` 组 | `T+179999 ms` 时 `shouldAskUser == false` 且 `classId == null`；`T+180000 ms` 时 `shouldAskUser == true` |
+| 16 | **窗口是按 `classId` 与会话记账的，不是全局静音** | 同上文件的 `只静默被答复的类别，别的类别照常提问` / `窗口是"同一次检测"的：新会话不继承静默` | 另一 `classId` 在窗口内 `shouldAskUser == true`；`start()` 新会话后立刻恢复提问 |
+| 17 | **「否」不被自动落库撤销** | 同上文件的 `点「否」之后，同一类别在窗口内不得被自动落库` | 窗口内即使聚合器给 `confirmed`，会话上报仍为 `observing` 且 `classId == null`；`SessionOutcome.records` 为空 |
+| 18 | **答复同步生效，且静默来自用户答复而非解码器** | 同上文件的 `点「是」同样结束追问，并且只落一条记录` / `未作答的对照组：同一解码器、同一脚本，仍然在问`；负例对照：注释掉 `DetectionSession._applyMute` 的调用后，`tool/session_tests.dart` 该组必须有 ≥ 6 项转红 | `answerConfirmation()` 返回后 `shouldAskUser == false`；对照组（未作答、同输入）`shouldAskUser == true` |
+| 19 | 静默窗口取自 SSOT，不是写死在逻辑里的数字 | `confirmation_mute_test.dart` 的 `FF-20d 取自 SSOT，正好是用户要求的三分钟` | SSOT `voting.confirmation_mute_seconds == 180`；`DetectionSession.muteWindowMs == 180000` 且由 `FeatureConfig` 推导（把 SSOT 改成其它值，该断言必须转红） |
 
 ## 8. 非功能约束
 - **线程**：聚合必须与 `run()` 在**同一 isolate**（`API-00` §3.7）；本类非线程安全、不加锁（`API-02` §4）。

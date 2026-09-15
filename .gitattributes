@@ -1,0 +1,61 @@
+# Repository-wide attributes (ADR-50, added before the first push).
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# `core.autocrlf` is `true` on the development machine and this repository had NO `.gitattributes`,
+# so every text file's line endings depended on one global setting that is invisible from inside the
+# repo. That produced the warning the first audit run printed for 39 files:
+#
+#     warning: in the working copy of 'shared/feature_config.json',
+#              LF will be replaced by CRLF the next time Git touches it
+#
+# A contributor on Linux/macOS with `core.autocrlf=false` would then see a diff of every line of
+# every file, and the Flutter/Dart/Kotlin sources have to stay byte-stable for the gates
+# (`check_ps1_encoding.py`, the Kotlin<->Dart parity suites, `mel_parity_test.py`).
+#
+# DELIBERATELY MINIMAL
+# -------------------
+# This file marks **binaries** only. It contains NO `* text=auto` and NO `eol=` rule on purpose:
+# either of those would renormalize every already-tracked file on the next `git add` and turn one
+# commit into a whole-tree rewrite, which is exactly the churn this file is meant to prevent. The
+# line-ending question for *text* files is therefore left exactly as it was -- the honest way to
+# fix it is a dedicated, reviewable renormalization commit, not a side effect of a tidy-up.
+#
+# ADR-51 (the restructuring that made the repository root the AcouDiet project itself) added no
+# path rules here, so this file survived that move unchanged: `git mv`-style moves preserve blob
+# content, and the rules below match by extension, not by directory.
+
+# ---- Rendered / captured media -----------------------------------------------------------
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.ttf  binary
+*.otf  binary
+*.woff binary
+*.woff2 binary
+
+# ---- Audio (the project's own noise corpus is committed; it must never be re-encoded) -----
+*.wav  binary
+*.mp3  binary
+*.flac binary
+*.ogg  binary
+
+# ---- Model artifacts ---------------------------------------------------------------------
+# `*.tflite` IS committed on purpose (4 MB, the shipped model, makes a rebuild reproducible).
+*.tflite      binary
+*.gguf        binary
+*.safetensors binary
+
+# ---- Archives / packages -----------------------------------------------------------------
+*.zip binary
+*.docx binary
+*.jar binary
+
+# ---- Delivery artifacts (gitignored; marked here so a forced add cannot corrupt them) -----
+*.apk binary
+*.aab binary
+*.jks binary
+*.keystore binary

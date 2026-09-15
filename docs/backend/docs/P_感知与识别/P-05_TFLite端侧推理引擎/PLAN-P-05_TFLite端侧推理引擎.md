@@ -22,7 +22,7 @@
 | 9 | `test/domain/label_mapping_test.dart` | 类别映射与 FF-19 一致 |
 | 10 | `test/domain/inference_degrade_test.dart` | 降级路径（步长 → 1.0 s） |
 | 11 | `test/domain/inference_bench_test.dart` | 延迟**实测**采集 |
-| 12 | `docs/reports/p05_latency.md` | D4 实测延迟与委托回退记录（**不写预测值**） |
+| 12 | `records/reports/p05_latency.md` | D4 实测延迟与委托回退记录（**不写预测值**） |
 | 13 | `ai/scripts/check_model_size.py` | 模型体积断言（FF-16） |
 
 ## 2. 任务拆解（WBS）
@@ -100,7 +100,7 @@ class TfliteInferenceEngine implements InferenceEngine {
 - [ ] **D4 硬验收**：`PLAN-00` §1 D4 行「模型 ≤ FF-16 上限」「parity 通过」「无 INTERNET 权限」三项齐全。
 - [ ] **NNAPI 失败静默回退**已由注入式测试证明：不抛异常、无 UI 提示、诊断有记录。
 - [ ] 类别映射与 FF-19 一致，且映射常量**生成自** `feature_config`（不手写）。
-- [ ] 单 patch 延迟实测值写入 `docs/reports/p05_latency.md`（只写实测，不写预测）。
+- [ ] 单 patch 延迟实测值写入 `records/reports/p05_latency.md`（只写实测，不写预测）。
 - [ ] 降级路径可用：步长可切到 1.0 s，`droppedPatches` 趋势收敛。
 - [ ] 推理 isolate 在会话结束后被销毁（`dispose()` 断言）。
 

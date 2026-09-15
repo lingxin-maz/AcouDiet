@@ -1,0 +1,7 @@
+<name>=AcouDiet-v1.3.0-20260915-arm64-v8a-agent.apk
+<flavour>=agent
+<bytes>=28220768
+<sha256>=ba3236e03134f2e51c247f97d5d03118eef749ed1457784b47046645062fe081
+<builtOn>=2026-09-15
+<appVersion>=1.3.0+6
+<gradlePermissionGate>=PASSED

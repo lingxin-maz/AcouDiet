@@ -23,6 +23,11 @@
 #     `ACOUDIET_FLUTTER`, so a self-hosted runner *could* run it -- but this hosted runner has
 #     no way to build the APK, so **the page-alignment gate and the APK-content gate do not run
 #     in CI**. They remain local, post-build steps. That is a real gap, stated rather than hidden.
+#   * ADR-44 adds a THIRD gate with the same shape: the Gradle `manifestTask.doLast` block that
+#     asserts each flavour's exact permission set. It runs only inside a real `flutter build`, so
+#     **the two-flavour permission assertions never execute here either**. What CI CAN check is the
+#     static side -- the manifest overlays are well-formed, and the network/audio boundaries hold.
+#     The dynamic side stays local (and, on this machine, has never been executed at all).
 #   * Nothing here touches the model itself; `ai/artifacts/metrics.json` is still absent, so the
 #     accuracy gate has nothing to check (see ADR-36).
 
@@ -40,7 +45,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: AcouDiet/app
+        working-directory: app
     steps:
       - uses: actions/checkout@v4
 
@@ -62,13 +67,40 @@ jobs:
       # `gen_feature_config.dart` has no `--check` flag -- it always regenerates -- so drift is
       # detected the honest way: regenerate, then require the tracked files to be unchanged.
       - name: SSOT constants are in sync (regenerate, then require no diff)
-        working-directory: AcouDiet
+        working-directory: .
         run: |
           dart tool/gen_feature_config.dart
           git diff --exit-code -- app/lib/core/feature_config.g.dart app/android/app/src/main/kotlin/com/acoudiet/app/config/FeatureConfig.kt
 
       - name: flutter test
         run: flutter test
+
+      # ADR-44: `acouIsOffline` is a COMPILE-TIME constant, so the run above never compiles the
+      # offline branch. The first time that branch was ever built, three tests turned out to
+      # assume the agent flavour. One branch, two builds -- test both or you have tested one.
+      - name: flutter test (offline flavour)
+        run: flutter test --dart-define=ACOUDIET_FLAVOUR=offline
+
+      # ADR-44: the cloud agent's offline suite. 80 checks, and SIX of them are negative
+      # controls. It needs no socket, no plugin and no Flutter binding -- the connection layer
+      # was split precisely so this could run anywhere `dart` does.
+      - name: "Agent offline suite (ADR-44 cloud egress + handoff rules)"
+        working-directory: app
+        run: dart tool/agent_tests.dart
+
+      # The controls ARE the point, so their presence is asserted rather than assumed: with the
+      # breakage disabled, every negative control must go red. Without this step, deleting a
+      # control would leave the previous step green -- which is the failure mode this whole
+      # project keeps rediscovering ("a gate that cannot fail is not a gate").
+      - name: Agent negative controls are load-bearing
+        working-directory: app
+        shell: bash
+        run: |
+          if dart tool/agent_tests.dart --without-negative-controls; then
+            echo "::error::--without-negative-controls PASSED; the controls are not load-bearing"
+            exit 1
+          fi
+          echo "ok: the suite fails when its controls are disabled, so they test something"
 
   portable-checks:
     name: portable python checkers
@@ -86,7 +118,7 @@ jobs:
       # These read files, not the toolchain, so they are genuinely portable. The list is
       # deliberately explicit: a glob would silently stop covering a checker that gets renamed.
       - name: SSOT / split / naming guards
-        working-directory: AcouDiet
+        working-directory: .
         run: |
           python tool/check_split_leakage.py --strict
           python tool/check_bridge_symmetry.py --strict
@@ -96,8 +128,28 @@ jobs:
           python tool/check_android_xml.py --strict
           python tool/check_consent_registry.py --strict
 
+      # ADR-44: the two gates for the one new egress path. `check_network_boundary` inverts the
+      # old rule ("no network anywhere") into the rule that actually matters now ("the network is
+      # in exactly these three directories"), and `check_audio_egress` defends FF-24 item 8 --
+      # audio never leaves the device, in any flavour, in any version.
+      - name: Cloud egress boundaries (ADR-44)
+        working-directory: .
+        run: |
+          python tool/check_network_boundary.py --strict
+          python tool/check_audio_egress.py --strict
+
+      # A BOM-less .ps1 containing non-ASCII is a PARSE ERROR under Windows PowerShell 5.1. The
+      # repository documented the rule in two file headers and it still broke again, because
+      # editors strip the BOM and nothing checked the bytes.
+      - name: PowerShell script encoding
+        working-directory: .
+        run: python tool/check_ps1_encoding.py --strict
+
       - name: Checker self-tests (negative controls)
-        working-directory: AcouDiet
+        working-directory: .
         run: |
           python tool/selftest_check_apk_contents.py
           python tool/selftest_check_emulator_model_log.py
+          python tool/check_network_boundary.py --selftest
+          python tool/check_audio_egress.py --selftest
+          python tool/check_ps1_encoding.py --selftest

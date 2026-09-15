@@ -1,7 +1,7 @@
 # 跨端公共文档索引（`docs/common/`）
 
 **定位**：**前端与后端都要遵守**的约定、合规要求与工程底座。
-**规模**：5 个功能 + 2 份章节级文档 + 2 份跨端接口契约 + 6 份 JSON Schema。
+**规模**：6 个功能 + 3 份章节级文档 + 2 份跨端接口契约 + 6 份 JSON Schema。
 **总索引**：`docs/README.md` ｜ 冲突裁定：`docs/01_裁定记录ADR.md`
 
 ---
@@ -25,11 +25,12 @@
 ```
 docs/common/
 ├── README.md                              ← 本文件
-├── SPEC-00_总则与冻结事实.md                 ★ 宪法：FF-01~FF-25 冻结事实 + 文档模板 + 写作禁令
+├── SPEC-00_总则与冻结事实.md                 ★ 宪法：FF-01~FF-26 冻结事实 + 文档模板 + 写作禁令
 ├── PLAN-00_总排期与依赖.md                   ★ D0–D10 + 4 个检查点 + 工时预算
+├── PLAN-01_开发顺序与依赖图.md                ★ 按依赖排序的开工清单（含 `ADR-44` 的 v2.0 工作流）
 ├── docs_api/
 │   ├── API-00_接口总览与约定.md              分层边界 / 命名 / 30 个错误码登记表 / 握手 / 背压
-│   ├── API-05_后端数据通讯规范.md            ★ 「无云端后端」裁定 + 数据流向 + 制品契约 + v2.0 预留协议
+│   ├── API-05_后端数据通讯规范.md            ★ `ADR-44` 修订 §1（「唯一云端出口」）+ §13 云端推理通讯规范 + 制品契约
 │   └── schemas/                            6 份机器可校验契约（draft-07）
 │       ├── feature_config.schema.json
 │       ├── diet_record.schema.json
@@ -42,26 +43,28 @@ docs/common/
     ├── C-02_知情同意与数据伦理归档/
     ├── C-03_feature_config单一真源与变更传播/
     ├── C-04_构建签名与发布/
-    └── C-05_测试与回归套件/
+    ├── C-05_测试与回归套件/
+    └── C-06_云端智能的隐私与合规/            🆕 `ADR-44`
 ```
 
-> **`SPEC-00` 与 `PLAN-00` 是本节唯一的"不成对"文档**：它们是章节级文档（宪法与总排期），本就不需要 PLAN/SPEC 配对。`verify_docs.py` 已把这一例外写进规则。
+> **`SPEC-00` / `PLAN-00` / `PLAN-01` 是本节唯一的"不成对"文档**：它们是章节级文档（宪法、总排期、开工清单），本就不需要 PLAN/SPEC 配对。`verify_docs.py` 已把这一例外写进规则。
 
 ---
 
-## 3. 功能清单（5）
+## 3. 功能清单（6）
 
 | 编号 | 名称 | 一句话 | 归属 | 目标日 | 状态 |
 |---|---|---|---|---|---|
-| `C-01` | 权限最小化与无网络权限可验证 | Manifest 仅 `RECORD_AUDIO`；`aapt dump badging` 留证；飞行模式全流程验证 | B | D4 | ✅ |
+| `C-01` | 权限最小化与无网络权限可验证 | 按风味验证：`offline` 仅 `RECORD_AUDIO`、`agent` 恰多一项 `INTERNET`；两份 `aapt dump badging` 留证；飞行模式全流程验证 | B | D4 | ✅ |
 | `C-02` | 知情同意与数据伦理归档 | 同意书 7 条 + 先签后用 + 归档（姓名打码） | C | D0 | ✅ |
 | `C-03` | **`feature_config` 单一真源与变更传播** | SSOT（**49 键**，`ADR-21`）+ 双侧读取 + **15 字段**握手（`ADR-21`；原 ~~12~~）+ 14 项变更单 | A+B | D0→D1 | ✅ **硬闸门** |
 | `C-04` | 构建、签名与发布 | release 签名、`flutter build apk`、体积与权限复核、D10 代码冻结 | B | D9→D10 | ✅ |
 | `C-05` | 测试与回归套件 | 一致性测试 / 防泄漏 / 数值对齐 / 隐私回归 / 演示前清单 | A+B | D3→D9 | ✅ |
+| `C-06` | 云端智能的隐私与合规 | 同意门（默认关闭、可撤回）+ 外发白名单 + 音频零出境 + 自备 Key，`SPEC-C-06` | A+B+C | D0→D9 | ✅ **`ADR-44`** |
 
 ---
 
-## 4. 为什么这 5 项必须跨端
+## 4. 为什么这 6 项必须跨端
 
 | 编号 | 前端会碰它吗 | 后端会碰它吗 |
 |---|---|---|
@@ -70,6 +73,7 @@ docs/common/
 | `C-03` | 是 —— `feature_config.dart` 常量由前端读 | 是 —— Kotlin 常量 + Python 训练脚本 |
 | `C-04` | 是 —— 前端资源与文案进 APK | 是 —— 模型与 `foods.json` 打包进 `assets/` |
 | `C-05` | 是 —— 跨功能一致性测试断言「评分卡数字 == UI 数字」 | 是 —— parity / 对齐 / 防泄漏断言 |
+| `C-06` | 是 —— 同意门与撤回入口在 `U-07` | 是 —— 外发白名单与音频零出境由 `G-*` 与连接层实现 |
 
 ---
 
@@ -83,12 +87,15 @@ python D:\Desktop\Food\_toolchain\verify_env.py
 # 2) 规格文档（预期 BLOCKER × 0）
 python D:\Desktop\Food\_toolchain\verify_docs.py
 
-# 3) 无网络（预期输出中不含 INTERNET）
-aapt dump badging app-release.apk | findstr uses-permission
+# 3) 权限（两个风味分别取证；判据见 SPEC-C-01 §7 #1a/#1b/#2）
+aapt dump badging app-offline-release.apk | findstr uses-permission   # 期望：不含 INTERNET
+aapt dump badging app-agent-release.apk   | findstr uses-permission   # 期望：agent 申请且只多这一项 INTERNET
 
 # 4) 旧值零残留（预期命中 0，历史对比表除外）
 rg -n "3s|3 秒|hop.*160|帧移 10"
 ```
+
+> `API-05` §1 已由 `ADR-44` 从「零出口」重写为「**恰好一个出口**」（`G-01` 的 `DeepSeekClient`；音频出境仍为零），并新增 §13 云端推理通讯规范。核心链路仍是设备内的本地数据平面，`API-05` §2–§8 一字未改。
 
 ---
 

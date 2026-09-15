@@ -18,7 +18,7 @@
 | 5 | `ai/scripts/preprocess_parity_test.py` | Kotlin ↔ Python 预处理链对齐脚本 |
 | 6 | `ai/scripts/assert_no_hardcoded_preprocess.py` | 参数硬编码扫描 |
 | 7 | `shared/feature_config.json` 的**预处理顶层键**（`preemphasis` / `preemphasis_boundary` / `loudness_normalization` / `target_lufs`）—— **SSOT 里没有 `preprocess` 对象** | 参数单一真源 |
-| 8 | `docs/reports/p03_preprocess.md` | **增益上限**（推理侧 RMS 路径）的实测标定记录；目标响度 `target_lufs=−23.0` 已冻结（仅训练侧） |
+| 8 | `records/reports/p03_preprocess.md` | **增益上限**（推理侧 RMS 路径）的实测标定记录；目标响度 `target_lufs=−23.0` 已冻结（仅训练侧） |
 | 9 | `android/app/src/main/kotlin/com/acoudiet/app/audio/PreprocessConfig.kt` | 只读配置访问器（禁止硬编码） |
 | 10 | `test/native/preprocess_pipeline_test.dart` | 端到端断言：预处理后的样本数仍为 FF-09 且全为有限值 |
 

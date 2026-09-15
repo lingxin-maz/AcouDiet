@@ -13,14 +13,14 @@
 | # | 文件路径 | 内容 |
 |---|---|---|
 | 1 | `app/android/app/src/main/AndroidManifest.xml` | 合并后仅 `RECORD_AUDIO` 的权限声明（**本 PLAN 不新增文件，只改既有清单**） |
-| 2 | `docs/compliance/C-01/aapt_badging_<yyyyMMdd>_<buildType>.txt` | `aapt dump badging` 原样输出 |
-| 3 | `docs/compliance/C-01/apk_sha256.txt` | APK 路径 + 64 位 hex + 字节数 + 构建类型 + 构建日期 |
-| 4 | `docs/compliance/C-01/code_scan_no_network.txt` | 5 关键词搜索命令与输出（命中行数 0） |
-| 5 | `docs/compliance/C-01/flight_mode_checklist.md` | `SPEC-C-01` §7 #4 的 7 项核对表 + 截图文件名 |
-| 6 | `docs/compliance/C-01/ppt_fig_07_no_internet.png` | PPT 必现图表第 7 项的截图 |
-| 7 | `docs/compliance/C-01/README.md` | 证据索引（文件 → 判据编号 → 采集日期） |
+| 2 | `records/compliance/C-01/aapt_badging_<yyyyMMdd>_<buildType>.txt` | `aapt dump badging` 原样输出 |
+| 3 | `records/compliance/C-01/apk_sha256.txt` | APK 路径 + 64 位 hex + 字节数 + 构建类型 + 构建日期 |
+| 4 | `records/compliance/C-01/code_scan_no_network.txt` | 5 关键词搜索命令与输出（命中行数 0） |
+| 5 | `records/compliance/C-01/flight_mode_checklist.md` | `SPEC-C-01` §7 #4 的 7 项核对表 + 截图文件名 |
+| 6 | `records/compliance/C-01/ppt_fig_07_no_internet.png` | PPT 必现图表第 7 项的截图 |
+| 7 | `records/compliance/C-01/README.md` | 证据索引（文件 → 判据编号 → 采集日期） |
 
-> 路径 `docs/compliance/` 为新增目录，`SPEC-00` §1 未列该类目 —— 已登记在 `SPEC-C-01` §10 #1，需 A/B/C 确认后增补目录表。
+> 路径 `records/compliance/` 为新增目录，`SPEC-00` §1 未列该类目 —— 已登记在 `SPEC-C-01` §10 #1，需 A/B/C 确认后增补目录表。
 
 ## 2. 任务拆解（WBS）
 
@@ -64,7 +64,7 @@ rg -n --glob '!**/build/**' -e 'http' -e 'dio' -e 'socket' -e 'WebSocket' -e 'ur
 | 代码层零网络调用 | 命令 | 5 关键词命中行数 == 0（`rg` 退出码 1） | 每次提交前、D4、D10 |
 | 模型体积复核 | 命令 | `app/assets/models/*.tflite ≤ 2.5 MB`（FF-16） | D4、D10 |
 | 飞行模式全流程 | 人工核对表 | 7 项全通过，无异常弹窗 | D9 演练、D10 定稿 |
-| 证据完整性 | 断言 | `docs/compliance/C-01/` 下 5 类文件存在，`sha256` hex 长度 64 | D10 |
+| 证据完整性 | 断言 | `records/compliance/C-01/` 下 5 类文件存在，`sha256` hex 长度 64 | D10 |
 
 ## 5. 完成定义（DoD）
 
@@ -72,7 +72,7 @@ rg -n --glob '!**/build/**' -e 'http' -e 'dio' -e 'socket' -e 'WebSocket' -e 'ur
 - [ ] 主线 Manifest 仅 `RECORD_AUDIO`；debug/profile 的 `INTERNET` 未进入 release 合并结果
 - [ ] 代码层 5 关键词搜索命中行数为 0，且不含白名单豁免（`pubspec.yaml` 与代码不接受白名单）
 - [ ] 飞行模式 7 项核对表全部打勾并有截图
-- [ ] `docs/compliance/C-01/` 五类证据齐备，`README.md` 索引到判据编号
+- [ ] `records/compliance/C-01/` 五类证据齐备，`README.md` 索引到判据编号
 - [ ] PPT 第 7 项图表（`aapt` 无网络权限截图）已就位
 - [ ] 「开启网络会失去什么」三条已写入答辩 Q&A 材料并与 `API-05` §10 一致
 - [ ] `API-05` §11 数据可携带性缺口已在 PPT「后续工作」列出

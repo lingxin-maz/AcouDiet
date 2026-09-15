@@ -121,7 +121,7 @@
 | `specs`/`FF-16` 关于模型体积的口径 | 资产体积上限（fp32 ≤ 6 MB / int8 ≤ 2.5 MB） | 该口径针对**声学模型**；LLM 权重必须**另立一条**口径，不能混用 |
 | `tool/verify_artifacts.py` | 「`assets/models/` 恰一份模型制品」 | 因此 LLM 权重**不得**放进 `assets/models/`，应放 `assets/llm/` |
 | `tool/verify_all.ps1` 16 步 | 体积/权限相关步骤 | 需新增「LLM 资产存在性 + 许可文本可达」一步 |
-| `docs/compliance/C-01_privacy_checklist.md` | 七条 FF-24 约束 | 第 1/3/6 条**不受影响**（仍无音频落盘、仍无网络、仍无后台 Service），但需补一句"模型权重为构建期资产" |
+| `records/compliance/C-01_privacy_checklist.md` | 七条 FF-24 约束 | 第 1/3/6 条**不受影响**（仍无音频落盘、仍无网络、仍无后台 Service），但需补一句"模型权重为构建期资产" |
 
 ---
 

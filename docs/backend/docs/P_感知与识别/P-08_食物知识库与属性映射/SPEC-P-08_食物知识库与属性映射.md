@@ -165,7 +165,7 @@ class FoodKnowledgeBase {
 | 14 | 无网络依赖 | `aapt dump badging`（`PLAN-C-01`） | 无 `INTERNET`；知识库仅来自 assets |
 
 ## 8. 非功能约束
-- **体积与加载**：`foods.json` 为纯文本小文件；实测字节数与加载耗时在 D1 产出并记入 `docs/reports/p08_foods_kb.md`（**不写预测值**）。
+- **体积与加载**：`foods.json` 为纯文本小文件；实测字节数与加载耗时在 D1 产出并记入 `records/reports/p08_foods_kb.md`（**不写预测值**）。
 - **线程**：`load` 在启动阶段于 Dart 主 isolate 完成；查表为纯内存只读、无锁（`API-02` §6）。
 - **离线**：只读 assets，无网络、无数据库依赖（FF-24 §4）。
 - **可本地化**：字段设计为可翻译（v1.0 只交付中文 `zhName` 与文案），英文 `label` 仅作机器标识。
@@ -181,7 +181,7 @@ class FoodKnowledgeBase {
 
 ## 10. 开放问题
 1. **`category` 的取值口径未冻结**：`API-04` §2.1 把它定义为「记录页次级标签（如『高加工零食』）」，但 FF-22 的 `structure` 维按 `cabbage + carrot + noodles` 三类计算占比，与 `category` **不是同一口径**。本 SPEC 约定 `category` **只作展示**、`structure` 维**不得**依赖 `category`。**需 A/C 确认**后再写入 `SPEC-A-01`。
-2. **标准份量的量值来源未定**：`portionDesc` 与 `portionKcal` 的具体数值必须有可追溯来源（包装标注 / 膳食指南），**需 C 在 D1 给出引用并写入 `docs/reports/p08_foods_kb.md`**；否则「估算」二字缺乏依据。
+2. **标准份量的量值来源未定**：`portionDesc` 与 `portionKcal` 的具体数值必须有可追溯来源（包装标注 / 膳食指南），**需 C 在 D1 给出引用并写入 `records/reports/p08_foods_kb.md`**；否则「估算」二字缺乏依据。
 3. **`adviceText` 不再需要**：`API-04` §2.1 的字段表把建议文案素材归为 `riskNote`，不再单列 `adviceText`。本 SPEC 已据此收敛（原开放问题关闭）；若 `A-02` 需要更长的静态文案，须走 `API-00` §3.9 变更流程。
 4. **`riskNote` 是否允许空串**：Schema 未设 `minLength`，本 SPEC 允许空串；若 `A-02` 依赖每条记录都有文案，需在 Schema 增加 `minLength: 1` 并重跑全部 6 条记录。**需 C 确认。**
 5. **文件名与上游清单不一致**：`00_功能清单` §2 表格中的名称与本文件名一致，但同类问题存在于 `P-04`/`P-05`/`P-07`（见交付报告），**需 C 统一裁定后同步 `SPEC-00` §2 的命名规则**。

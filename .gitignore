@@ -1,42 +1,51 @@
-# Repository root: D:\Desktop\Food  -- the project's real root, not `AcouDiet/`.
+# Repository root = the AcouDiet project itself (ADR-51).
 #
-# WHY THIS FILE IS THE MOST IMPORTANT ONE IN THE REPO (ADR-36)
-# ------------------------------------------------------------
+# WHY THIS FILE IS THE MOST IMPORTANT ONE IN THE REPO (ADR-36, re-pointed by ADR-51)
+# ---------------------------------------------------------------------------------
 # This project had **no version control at all** until ADR-36, and its own ADR log records at least
 # two irreversible losses caused by that -- e.g. "旧包已被 Copy-Item 覆盖，本仓不是 git 仓库，
 # 取不回旧字节", and ADR-34's Qwen removal had to be hand-archived before anything could be deleted.
 #
-# The reason nobody had committed is visible below: the tree carries ~6 GB of build output and
-# vendored toolchains, and the *authoritative* material is spread across three sibling directories
-# (`shared/` = the SSOT, `docs/` = the frozen SPEC tree + the ADR log, `AcouDiet/` = the code).
-# A repo rooted at `AcouDiet/` alone would not version the ADR log or `shared/feature_config.json`,
-# i.e. it would not version the two things this project treats as its constitution.
+# The reason nobody had committed is visible below: the tree carries tens of GB of build output and
+# vendored toolchains. Ignoring the heavy directories makes the real sources (a few MB) committable.
 #
-# Ignoring the heavy directories below makes the real sources (a few MB) committable.
+# ADR-51 moved the code from `AcouDiet/` up to the repository root and renamed the old
+# `AcouDiet/docs/` to `records/`, so that a clone is a normal single-project checkout. Every rule
+# below was re-pointed in that same commit; the build/gate scripts derive their own root from their
+# file location, so only this file and a handful of literal paths had to change.
 
 # ---- Toolchains (outside the deliverable on purpose) -------------------------------------
+# `_toolchain/` is this machine's self-contained dev environment (~26 GB: Flutter, JDK 17, a
+# portable CPython + site-packages, the Android SDK). It is an environment fact, not source.
+# Every entry point honours ACOUDIET_TOOLCHAIN / ACOUDIET_PYTHON / ACOUDIET_FLUTTER so another
+# machine can point at its own checkout -- see README section "环境".
 _toolchain/
+# Leftover Android SDK copy that predates the consolidation into `_toolchain/`.
 AcouDiet/_toolchain/
 *.gguf
 
 # ---- Build output ------------------------------------------------------------------------
-AcouDiet/app/build/
-AcouDiet/app/.dart_tool/
-AcouDiet/app/.flutter-plugins
-AcouDiet/app/.flutter-plugins-dependencies
-AcouDiet/app/.packages
-AcouDiet/build/
-AcouDiet/_build/
-AcouDiet/ai/data/raw/
-AcouDiet/ai/data/augmented/
-AcouDiet/ai/data/parity_out/
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+build/
+_build/
+ai/data/raw/
+ai/data/augmented/
+ai/data/parity_out/
 
 # ---- Review artefacts --------------------------------------------------------------------
 # `app/tool/visual_capture_test.dart` renders the real pages to PNG so the UI work can be reviewed
-# against `软件UI界面设计图/*.png` without a device (ADR-38). The renders are derived output: one
-# command regenerates them, and the *checks* that must stay green are the widget tests, not the
+# against `design/软件UI界面设计图/*.png` without a device (ADR-38). The renders are derived output:
+# one command regenerates them, and the *checks* that must stay green are the widget tests, not the
 # pixels.
-AcouDiet/app/tool/visual_capture/
+app/tool/visual_capture/
+# Same job, different directory: on a mismatch the same test writes master/test/masked/isolated
+# PNGs into `tool/failures/`. Measured 2026-09-15: 25 files, ~6 MB, pure derived output -- and the
+# old rule above did not cover it, so it was staged for the first push.
+app/tool/failures/
 
 # ---- Derived measurement intermediates ---------------------------------------------------
 # The per-sample probability dump behind `ai/reports/threshold_calibration.md` (FF-20b). It is a
@@ -44,25 +53,36 @@ AcouDiet/app/tool/visual_capture/
 #   python tool/evaluate_shipped_model.py --predictions ai/artifacts/shipped_predictions.jsonl
 # The *report* it feeds is committed, because FF-20b requires the calibration process to be
 # written down; the dump is not, because it would silently go stale against a new model.
-AcouDiet/ai/artifacts/shipped_predictions.jsonl
-AcouDiet/ai/artifacts/*.keras
-AcouDiet/ai/artifacts/saved_model/
+ai/artifacts/shipped_predictions.jsonl
+ai/artifacts/*.keras
+ai/artifacts/saved_model/
 
 # ---- Release artifacts -------------------------------------------------------------------
-# APKs are 60-600 MB and reproducible from source + the model card; `dist/*.sha256` plus the
-# release docs record what was shipped and what it hashed to. See ADR-36 for the honest limitation
-# of this choice: a *rebuilt* APK still overwrites its predecessor, so the hash ledger in
-# `docs/demo/PHONE_INSTALL.md` is what preserves "which bytes were ever released".
-AcouDiet/dist/*.apk
-AcouDiet/dist/*.apk.sha256
+# ⚠️ MEASURED BEFORE THE FIRST PUSH (ADR-50): the rules below used to name `dist/` only, while
+# `build_release.ps1` had been changed (ADR-44, section "archive index") to write into
+# `docs/release/` -- and the tree was later consolidated into `release/`. So the ignore rule stopped
+# matching the directory that actually held the output, and 1.95 GB of APKs became committable,
+# including TWO 568 MB files. GitHub rejects any file over 100 MB, so the first `git push` would
+# have failed outright -- after uploading everything before it.
+#
+# The rule is now written against the EXTENSION, not one directory, so a future move of the archive
+# cannot silently reopen the hole. What stays COMMITTED is the ledger: `release/RELEASE_*.md`,
+# `release/apk_sha256.txt` and `release/analyze_*.txt`. Those record which bytes were ever released;
+# the APKs themselves are rebuildable from source + the model card.
+#
+# See ADR-36 for the honest limitation of this choice: a *rebuilt* APK still overwrites its
+# predecessor, so the hash ledger is what preserves "which bytes were ever released".
+*.apk
+*.aab
+release/dist/*.apk.sha256
 
 # ---- Android / Gradle / signing ----------------------------------------------------------
-AcouDiet/app/android/.gradle/
-AcouDiet/app/android/local.properties
-AcouDiet/app/android/key.properties
-AcouDiet/app/android/app/debug/
-AcouDiet/app/android/app/profile/
-AcouDiet/app/android/app/release/
+app/android/.gradle/
+app/android/local.properties
+app/android/key.properties
+app/android/app/debug/
+app/android/app/profile/
+app/android/app/release/
 *.jks
 *.keystore
 
@@ -79,6 +99,12 @@ __pycache__/
 # the shipped artifact (4 MB) and committing them is what makes a rebuild reproducible.
 *.safetensors
 tokenizer.json
+
+# ---- Deliberately NOT published (ADR-51) -------------------------------------------------
+# Local planning/working material the project owner chose to keep off the public repository. It
+# stays on disk; these rules mean it can never be committed by accident.
+/讨论资料/
+/建议模型/
 
 # ---- Editors / OS ------------------------------------------------------------------------
 .idea/

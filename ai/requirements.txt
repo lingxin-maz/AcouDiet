@@ -1,0 +1,36 @@
+# AcouDiet offline AI toolchain -- dependencies
+#
+# This environment already has all of these installed under
+#   D:\Desktop\Food\_toolchain\site-packages
+# so nothing needs to be fetched. The pins record what the measured results in
+# records/reports/t07_t08_pipeline.md were produced with; they are a record, not a hard
+# requirement, except where a version is called out as the cause of a known defect.
+
+# --- core numerics ---
+numpy>=1.26
+scipy>=1.11
+
+# --- audio ---
+librosa>=0.10          # the reference Mel front end (T-08b cross-language gate)
+soundfile>=0.12        # 16 kHz mono PCM16 I/O (FF-01)
+resampy>=0.4
+audiomentations>=0.35  # T-03 augmentation (RIR/Mixup are cut: X-06)
+pyloudnorm>=0.1        # training-only LUFS normalisation (FF-08b / ADR-17)
+
+# --- training / export ---
+# tensorflow 2.21 + keras 3.15: NOTE the known defect -- TFLiteConverter.from_keras_model
+# raises TypeError('NoneType' object is not callable) on this pair, so src/quantize.py falls
+# back to from_concrete_functions. See records/reports/t07_t08_pipeline.md section 1.
+tensorflow>=2.16
+keras>=3.0
+
+# --- evaluation / reporting ---
+scikit-learn>=1.3
+statsmodels>=0.14      # Wilson 95% CI (statsmodels.stats.proportion.proportion_confint)
+matplotlib>=3.8        # ai/artifacts/confusion_matrix.png (generated, never hand-drawn)
+seaborn>=0.13
+pandas>=2.1
+
+# --- optional, used by T-01 dataset preparation ---
+# (no network here, so these paths fail loudly with ACD-ART-001)
+# kaggle>=1.6

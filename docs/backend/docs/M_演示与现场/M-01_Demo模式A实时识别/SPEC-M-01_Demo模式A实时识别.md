@@ -217,7 +217,7 @@ IDLE ──startRealtimeSession──▶ PRECHECK ──allPassed──▶ RUNNI
 
 | 字段 | 说明 |
 |---|---|
-| 记录产物路径 | `docs/demo/D9_三模式实测记录.md`（Mode A 段）+ 原始证据 `docs/demo/evidence/D9_modeA_<HHMM>.log` |
+| 记录产物路径 | `records/demo/D9_三模式实测记录.md`（Mode A 段）+ 原始证据 `records/demo/evidence/D9_modeA_<HHMM>.log` |
 | 必填列 | 轮次 / 时间 / 场地 / **环境噪声读数（实测 dB 值 + 所用工具名）** / 首次确认耗时(实测) / Top-1 标签 / 是否通过 / 异常码 / 操作人 |
 | 轮次要求 | ≥ 3 轮有效实测；**任一列留空视为该轮无效** |
 

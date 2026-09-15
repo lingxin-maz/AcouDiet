@@ -120,7 +120,7 @@ class BehaviorConfig { int mealEndSilenceSeconds; int chewMinPeakDistanceMs; int
 | `speedGrade` | `String?` | 是 | 枚举 `'偏快'` / `'正常'` / `'偏慢'`（FF-21e）；`avgChewIntervalSeconds == null` 时也为 `null`；**不得新增第四值** |
 | 包络序列 / 峰值统计（内部态） | `List<double>` | — | 会话内存在，**由原生侧随 `patch` 事件下发**（FF-21h）；**不落盘、不入库**（FF-24）；`reset()` 后清空 |
 | `behavior_metrics` 列 | — | — | 权威定义见 `SPEC-D-01`；字段可空并支持**占位行**（`API-03` §2.3）；**禁止 BLOB 音频列**（FF-24 §3） |
-| `MAE` 评估产物 | 文件 | — | `docs/reports/p07_chew_mae.md`（**D7 实测产出**，含标注集说明） |
+| `MAE` 评估产物 | 文件 | — | `records/reports/p07_chew_mae.md`（**D7 实测产出**，含标注集说明） |
 
 ## 5. 参数与常量
 | 项 | 引用 |
@@ -137,7 +137,7 @@ class BehaviorConfig { int mealEndSilenceSeconds; int chewMinPeakDistanceMs; int
 | **算法位置分工** | **FF-21i**：包络计算在 Kotlin（L1），平滑与峰值检测在本功能（Dart/L4）；完整架构裁定见 `API-01` §7 |
 | 包络长度 `envelopeLength` | **不在此复制字面值**：由 FF-21h 的公式给出；运行时真值以 `API-01` §2.3 出参与 `API-01` §2.8 的 `getEnvelopeCapability()` 为准 |
 | patch 采样数与时长 | FF-09（上游上下文；本功能已不直接消费 PCM） |
-| 平滑窗长（50 ms）/ MAE 降级线 | **未在 FF 中冻结**：定义在 `feature_config.behavior`，代码只读不写；登记见 §10 第 2 条，标定记录写 `docs/reports/p07_chew_mae.md` |
+| 平滑窗长（50 ms）/ MAE 降级线 | **未在 FF 中冻结**：定义在 `feature_config.behavior`，代码只读不写；登记见 §10 第 2 条，标定记录写 `records/reports/p07_chew_mae.md` |
 | 宣传口径 | FF-25（禁止「准确识别」；指标必须标注实测） |
 
 ## 6. 异常与降级
@@ -166,7 +166,7 @@ class BehaviorConfig { int mealEndSilenceSeconds; int chewMinPeakDistanceMs; int
 | 8 | `reset()` 幂等 | `behavior_finish_test.dart` 的 `reset_isIdempotent` | 连调 2 次 `reset()` 不抛错；统计归零 |
 | 9 | 暂停不计时长 | `behavior_duration_test.dart` 的 `pauseExcludedFromDuration` | 暂停 10 s 的会话 `durationSeconds` 不含这 10 s |
 | 10 | 输入校验与错误码 | `behavior_input_test.dart` 的 `badInput_throwsACD_BEH_001` | `rmsEnvelope` 缺失或长度不符 / `hopMs` 非法 / `tStartMs` 回退 / `endMs` 顺序非法 → `ACD-BEH-001`，`retryable == false` |
-| 11 | 咀嚼次数 MAE 评估（FF-21g） | `python ai/scripts/chew_mae_report.py --labels <set>` | 输出 MAE 百分比并写入 `docs/reports/p07_chew_mae.md`；**MAE > 配置降级线时必须在报告中标注「文案降级生效」** |
+| 11 | 咀嚼次数 MAE 评估（FF-21g） | `python ai/scripts/chew_mae_report.py --labels <set>` | 输出 MAE 百分比并写入 `records/reports/p07_chew_mae.md`；**MAE > 配置降级线时必须在报告中标注「文案降级生效」** |
 | 12 | 文案降级生效 | `flutter test test/domain/chew_copy_test.dart`（注入降级标志） | 降级时渲染「咀嚼节奏：较快」且**不含任何数字**；非降级时匹配正则 `约\s*\d+\s*次` |
 | 13 | **σ 未实现（X-07）** | `python ai/scripts/assert_x07_not_implemented.py` | 命中数 == 0；`BehaviorMetrics` 无 σ 字段（反射断言字段名集合 == 4） |
 | 14 | 无硬编码阈值 | `python ai/scripts/assert_no_hardcoded_behavior.py` | 命中数 == 0（阈值只来自 `BehaviorConfig`） |

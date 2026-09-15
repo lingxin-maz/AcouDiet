@@ -109,7 +109,7 @@
 | 高通截止频率 / 阶数 | **不适用（v1.0 已移除，`ADR-17` / FF-08c）**：主方案 §3.7 只保留「预加重 + 响度归一化」，高通从来不在冻结计划里；且 `fmin = 20 Hz` 的 Mel 滤波器组已丢弃 20 Hz 以下，预加重也已抑制低频 |
 | 目标响度（LUFS，仅训练侧） | **已冻结（`ADR-17` / FF-08b）**：`loudness_normalization = "training_only"`、`target_lufs = -23.0`；**推理侧不做 LUFS** —— FF-07/FF-08 的 patch 相对 dB + 逐 patch min-max 已提供尺度不变性（`ADR-21` 修订后的链路） |
 | 预加重首样本约定 | **已由 `ADR-21`（2026-09-12）修订为流式**：`preemphasis_boundary = "continuous_stream_previous_raw_sample_or_zero_at_source_start"`（取前一**原始**样本，源起点 `0.0`）。~~`"first_sample_passthrough"`（`x[−1] = x[0]`，`ADR-17`）~~ |
-| 增益上限（推理侧 RMS 路径） | 实测产出，标定记录写 `docs/reports/p03_preprocess.md`（**数值为 D2/D3 实测产出**）；若需两侧同源，以 `SPEC-C-03` 变更传播补入 `feature_config` |
+| 增益上限（推理侧 RMS 路径） | 实测产出，标定记录写 `records/reports/p03_preprocess.md`（**数值为 D2/D3 实测产出**）；若需两侧同源，以 `SPEC-C-03` 变更传播补入 `feature_config` |
 | 谱减法开关默认值 | `false`（主方案 §3.7；`API-01` §2.3） |
 | 阈值口径标定批次 | FF-20b（同批自采跨域测试集） |
 

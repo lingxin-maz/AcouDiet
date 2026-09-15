@@ -20,7 +20,7 @@
 | 7 | `test/domain/vote_aggregator_silent_test.dart` | 静默 patch 仍进入聚合（与 `PLAN-P-06` 共管） |
 | 8 | `ai/scripts/assert_no_hardcoded_vad.py` | 阈值硬编码静态扫描 |
 | 9 | `shared/feature_config.json` 的 **`behavior` 块 VAD 键**（4 个，经 `PLAN-C-03` 登记）—— **SSOT 里没有 `vad` 对象** | 阈值单一真源 |
-| 10 | `docs/reports/p02_vad_calibration.md` | D3/D6 标定记录（复核 `ADR-18`/FF-21k 冻结值的**实测产出**） |
+| 10 | `records/reports/p02_vad_calibration.md` | D3/D6 标定记录（复核 `ADR-18`/FF-21k 冻结值的**实测产出**） |
 | 11 | `android/app/src/main/kotlin/com/acoudiet/app/audio/EnvelopeFraming.kt` | **分帧与短时 RMS 的唯一实现**（FF-21h）：帧长 / hop 只在此处定义一次；`Vad` 的判定与 `rmsEnvelope` 产出共用它，`PLAN-P-07` 只消费其输出，**不得另写一遍 hop/帧长** |
 
 ## 2. 任务拆解（WBS）
@@ -99,7 +99,7 @@ emitPatch(voiced = voiced, rmsEnvelope = envelope,                   // 两者�
 | `vote_aggregator_silent_test.dart` | Dart 单测 | `voiced=false` 仍推进 EMA，`reset()` 未调用 | D6（与 `PLAN-P-06` 联跑） |
 | `assert_no_hardcoded_vad.py` | 静态扫描 | 命中数 == 0 | D6 / D10 |
 | 自采跨域集阈值标定 | 离线实验 | 逐样本 `voiced` 与人工标注一致性表产出（阈值取 `ADR-18`/FF-21k 的**冻结值**；本项只做实测验证，不重新预设阈值） | D3 起，D6 定稿 |
-| 真机连续进食 30 s | 人工核对（限文案/观感） | 结果稳定不闪烁（`PLAN-00` D6 硬验收）；逐项核对表见 `docs/reports/p02_vad_calibration.md` | D6 |
+| 真机连续进食 30 s | 人工核对（限文案/观感） | 结果稳定不闪烁（`PLAN-00` D6 硬验收）；逐项核对表见 `records/reports/p02_vad_calibration.md` | D6 |
 
 ## 5. 完成定义（DoD）
 - [ ] `SPEC-P-02` §7 全部 **10** 条判据通过（**必需项**）。

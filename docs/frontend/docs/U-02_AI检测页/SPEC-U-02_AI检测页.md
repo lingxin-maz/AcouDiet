@@ -47,6 +47,11 @@
 6. **首次确认结果耗时 ≈ 4–5 秒**：由窗口长度 4.096 s（FF-09）+ 稳定判据 2.0 s（FF-20 Level 2）共同决定，且与窗口滑动并行；**这是物理必然结果，不是缺陷、不是卡顿、不需要「优化」**。
 7. 确认后落库（`D-01`/`D-02`，一个事务）→ 提示「已自动记录」并附条目摘要（可跳 `U-03` 详情）。
 8. 进入 Level 3（0.45 ≤ p < 0.70）→ 二选一确认「疑似 X，请确认？」`是` / `否`；`是` → 按该类别落库并置 `correctedByUser = true`；`否` → 不写日志，回采集中。p < 0.45 → `未识别到明确食物`，不写日志。
+9. **同级静默窗口（FF-20d，`ADR-47`）**：答完「是 / 否」后，**同一类别**在此次检测的三分钟内不再出现确认弹层 —— 这是用户实测缺陷「点完否，同一句一秒钟后又问一遍」的修法（`SPEC-P-06` §2.2 步骤 11 的界面侧）。具体表现：
+   - 两个按钮**在点击的那一帧就消失**（`DetectNotifier` 用会话答复后的 `AggregatedDecision` 重新投影卡片，不再等下一个 patch）；
+   - 点「否」→ 卡片回到「正在感知…」中性态，**不再显示该类别名称、置信度与弹层**；点「是」→ 卡片保持该类别已确认态，弹层消失；
+   - 三分钟内该类别不再弹层；**其他类别不受影响**，照常弹层；
+   - 三分钟后证据可以重新赢得提问权（不是永久静音）；**重开一次检测立即解除**。
 9. 点「停止检测」→ `stopSession` → `SessionSummary` → `P-07` 计算行为指标 → 指标区刷新；90 s 静默则由原生自动结束并回填同样流程。
 10. 会话结束 → `clearTempAudio`（FF-24 第 2 条）。
 
@@ -61,7 +66,7 @@ enum DetectUiState { idle, requestingPermission, starting, listening, unconfirme
 | `listening` | 首个可用 patch 预测 | `unconfirmed` | `stage == observing` |
 | `unconfirmed` | Level 2 满足 | `confirmed` | 显示结果卡片（`stage == confirmed`） |
 | `unconfirmed` | 进入 `[0.45, 0.70)` | `askingUser` | `AggregatedDecision.shouldAskUser == true` |
-| `askingUser` | 「是」/「否」 | `unconfirmed` | 「是」落库且 `correctedByUser = true`；「否」不写日志且同类别不再重复追问 |
+| `askingUser` | 「是」/「否」 | `unconfirmed` | 「是」落库且 `correctedByUser = true`；「否」不写日志且同类别不再重复追问。**两个按钮在下一次 patch 之前就已消失**（答复同步生效，`ADR-47`） |
 | `confirmed` | 新 patch Top-1 变化 | `unconfirmed` | 结果卡片**保持上一态**直到新确认 |
 | 任意运行态 | 停止 / 90 s 静默 | `ending` → `ended` | `ending` 期间禁止重复 `stopSession`；`ended` 后可「再次检测」（新 `sessionId`） |
 | 任意态 | `sessionEnded(reason=error)` | `error` | 按 `code` 映射文案（`API-00` §3.5） |
@@ -70,7 +75,11 @@ enum DetectUiState { idle, requestingPermission, starting, listening, unconfirme
 - 连续吃 30 s 内结果**不得闪烁**（`PLAN-00` D6 硬验收）；未确认预测刷新频率上限 2 Hz。
 - 确认后置信度下降：结果卡片**保持上一确认态**，不回退为空。
 - `p` 恰为 0.45 / 0.70：按 FF-20 判定（0.70 属确认，0.45 属询问），边界须有单测。
+- **「否」之后紧接第二次点击**：按钮在点击的同一帧消失，因此第二次点击**不可能**发生；即使发生（自动化点击、无障碍服务重复触发），会话层也只会报 `ACD-SESS-002`，页面不得进入 `error` 态而无提示。
+- **静默窗口内用户改主意**：窗口只有 180 s 且不跨会话，`stop()` 后重新开始检测即可立即恢复提问权（`ADR-47`）。
 - 关屏 / 切后台：会话停止或暂停，**不得后台常驻**；返回显示 `已结束`。
+- **会话边界必须清空展示状态（`ADR-49`）**：`heldConfirmed` / 当前预测 / 行为读数 /「已自动记录」横幅都是**一次检测**的展示状态，**不得跨会话继承**。第二次检测的第一帧必须是中性态（不得显示上一轮的确认卡片），也不得继续挂着上一轮的「已自动记录」横幅。测试：`flutter test test/ui/detect_confirmation_round_test.dart`。
+- **「结果卡片保持上一态」只在会话内成立**：`stop()` 之后 `ended` 页面**保留**本轮结果与横幅（会话小结，`ADR-46`）；**同一轮内**旧确认卡片在拿到新确认前继续占位（§2.3 冻结判据）。这两条都**不是**跨会话继承，不得混为一谈。
 - 麦克风被抢占：`ACD-AUD-002` → `error` 态 + 提示关闭其他录音 App。
 - `chewCount` 为 `null`：显示 `--`；MAE 超线按 FF-21g 降级为「咀嚼节奏：较快」，不给绝对数字。
 - 波形事件中断 > 2 s：静默态水平基线，不残留上一会话波形。
@@ -107,6 +116,7 @@ enum DetectUiState { idle, requestingPermission, starting, listening, unconfirme
 ## 5. 参数与常量
 - patch 采样数与窗长：`SPEC-00` §3.1 **FF-09**（`65536` 样本 = 4.096 s）；滑窗步长：**FF-12**（0.5 s，每秒 2 个 patch）。
 - 三级阈值与首次确认耗时：`SPEC-00` §3.4 **FF-20** / **FF-20a**（首次确认 ≈ 4–5 s）/ **FF-20b**（D3 标定）/ **FF-20c**（跨 patch 保持状态）。
+- 二选一确认的静默窗口：`SPEC-00` §3.4 **FF-20d**（`voting.confirmation_mute_seconds` = 180 s）；呈现细节见 `ADR-47`，实现归属见 `SPEC-P-06` §2.2 步骤 11（**界面不得自己实现去重，也不得硬编码 180**）。
 - 会话结束与行为指标：`SPEC-00` §3.6 **FF-21a** / **FF-21e** / **FF-21f** / **FF-21g**。
 - 类别集合：`SPEC-00` §3.3 **FF-19**；委托回退：`SPEC-00` §3.2 **FF-18**（NNAPI 失败静默回退 CPU，**不向 UI 抛错**）。
 - 隐私：`SPEC-00` §3.9 **FF-24**；文案红线：`SPEC-00` §3.10 **FF-25**。
@@ -141,6 +151,9 @@ enum DetectUiState { idle, requestingPermission, starting, listening, unconfirme
 | 9 | 连续吃 30 s 稳定性 | 真机手测（`PLAN-00` D6 硬验收） | 结果卡片稳定不闪烁 |
 | 10 | 禁止实现项零命中 | `rg -n "识别历史\|2 秒\|两秒\|实时即刻" lib/presentation/pages/detect/` | 命中数 == 0 |
 | 11 | 无网络依赖 / 无表外字段 | `rg -n "http\|dio\|蛋白质\|脂肪\|碳水化合物\|膳食纤维\|重量" lib/presentation/pages/detect/` | 命中数 == 0 |
+| 12 | 同级静默窗口（FF-20d）的界面表现 | `flutter test test/domain/confirmation_mute_test.dart` 的 `点「否」之后，同一次检测的三分钟内不再出现该判断结果`；按钮消失链路由 `test/ui/detect_session_recovery_test.dart` + `tool/ui_presenter_tests.dart` 覆盖 | 答复返回后 `shouldAskUser == false`（无需等下一个 patch）；`T+179999 ms` 无弹层、`T+180000 ms` 恢复；「否」后 `classId == null` |
+| 13 | 检测页不得自己实现去重、不得硬编码窗口 | `rg -n "\b180\b\|confirmation_mute\|votingConfirmationMuteSeconds\|muteWindow" lib/presentation/` | 命中数 == 0（实测 2026-09-15：0）。静默只在 `DetectionSession`，页面**只**消费 `shouldAskUser`：`detect_page.dart` 的 `if (view.shouldAskUser)` |
+| 14 | 展示状态不得跨会话继承（`ADR-49`） | `flutter test test/ui/detect_confirmation_round_test.dart` | 点「是」→ 停止 → 再次开始：第一帧 `prediction.confirmed == false`、文案不等于上一轮；`savedRecord` 由 `isNotNull` 变 `isNull`；新一轮 `uiState != ended` |
 | 12 | 视觉与文案人工核对 | 见下表逐项核对表 | 全部 ✓ |
 
 **人工核对表（检测页，9 项）**

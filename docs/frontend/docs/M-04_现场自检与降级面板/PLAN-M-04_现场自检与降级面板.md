@@ -17,9 +17,9 @@
 | 4 | `app/lib/features/demo/switch_error_messages.dart` | SPEC §6 的错误码 → 人类可读原因 + 建议动作映射表 |
 | 5 | `app/test/demo/self_check_test.dart` | SPEC §7 的 D1–D14、D18–D22（**D15–D17 为既有空缺，见 SPEC §7 表下注**） |
 | 6 | `app/integration_test/panel_reachability_test.dart` | **D13**（面板可达性） |
-| 7 | `docs/demo/面板现场核对表.md` | **D16** 现场逐项核对表的可打印版本（与 `docs/demo/现场SOP卡片.md` 同批携带） |
-| 8 | `docs/demo/D9_三模式实测记录.md` | 面板段；含 SPEC §7 **D17** 实测记录表 |
-| 9 | `docs/demo/evidence/D9_selfcheck_*.log` | 每次自检的完整 `SelfCheckReport` 快照（含时间戳） |
+| 7 | `records/demo/面板现场核对表.md` | **D16** 现场逐项核对表的可打印版本（与 `records/demo/现场SOP卡片.md` 同批携带） |
+| 8 | `records/demo/D9_三模式实测记录.md` | 面板段；含 SPEC §7 **D17** 实测记录表 |
+| 9 | `records/demo/evidence/D9_selfcheck_*.log` | 每次自检的完整 `SelfCheckReport` 快照（含时间戳） |
 
 ## 2. 任务拆解（WBS）
 | # | 任务 | 产出 | 工时 | 依赖 |
@@ -112,9 +112,9 @@ class DemoController {
 ## 5. 完成定义（DoD）
 - [ ] `SPEC-M-04 §7` 的 **D1–D14、D18–D22 全部判据通过**（测试全绿 / 扫描零命中）。
 - [ ] 前 9 项 `key` 与顺序**与 `API-04 §7.1` 逐字一致**；第 10~14 项依次为 `session` / `modelInfo` / `envelope` / `dropRate` / `demoData`，共 14 项（ADR-04）。
-- [ ] **D8 晚面板已可运行**（`docs/demo/evidence/D9_selfcheck_*.log` 中存在 D8 晚时间戳的快照）——这是本功能的硬时限。
+- [ ] **D8 晚面板已可运行**（`records/demo/evidence/D9_selfcheck_*.log` 中存在 D8 晚时间戳的快照）——这是本功能的硬时限。
 - [ ] D17 记录表 ≥3 轮齐备（含时间戳），结论行与实际故障类型一致。
-- [ ] **D16 现场核对表 8 项** 100% 勾选并签字；打印件与 `docs/demo/现场SOP卡片.md` 同批携带。
+- [ ] **D16 现场核对表 8 项** 100% 勾选并签字；打印件与 `records/demo/现场SOP卡片.md` 同批携带。
 - [ ] `runSelfCheck()` 被 `PLAN-M-01`/`M-02`/`M-03` 复用（代码审查：仓库内仅一份自检实现）。
 - [ ] `SPEC-M-04 §10` 开放问题 **1（14 项）、2（`ambientNoise` 口径）、3（模型版本数据源）均已关闭并回写本 SPEC**（分别依据 ADR-04 / ADR-04 / ADR-03）；开放问题 4（`ACD-DEMO-002/003` 补登 `API-00 §3.5`）已闭环。
 - [ ] 代码合入 D8 节点分支；D9 之后仅允许改面板文案，**不允许改自检判定逻辑**。

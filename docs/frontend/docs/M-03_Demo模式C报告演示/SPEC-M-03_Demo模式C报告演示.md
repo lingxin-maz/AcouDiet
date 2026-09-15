@@ -162,7 +162,7 @@ REAL_ONLY ──真实记录不足（主方案 §9.1）──▶ DEMO_ACTIVE（l
 | C7 | 禁止两轨混算 | 同上 `--plain-name "no mixed source aggregation"` | 聚合仅按单一 `source` 过滤；混算场景抛错 |
 | C8 | 一键清除全部数据 | `flutter test test/data/clear_all_test.dart --plain-name "clear all removes every table"` | 全部业务表行数 == 0（FF-24 第 7 条，`SPEC-D-05`） |
 | C9 | 文案红线零命中 | `pwsh -Command "Select-String -Path docs/**/*.md,app/lib/**/*.dart -Pattern '2\\s*秒|2\\s*s\\s*内'"` | 命中数 **0**（FF-25） |
-| C10 | **SOP 卡片六条要点齐备** | `pwsh -Command "$p='docs/demo/现场SOP卡片.md'; @('30','飞行模式','65','备用','禁止.*改代码','脚本') \| ForEach-Object { if (-not (Select-String -Path $p -Pattern $_)) { exit 1 } }"` | 6 组关键词**每组 ≥1 命中**，退出码 0 |
+| C10 | **SOP 卡片六条要点齐备** | `pwsh -Command "$p='records/demo/现场SOP卡片.md'; @('30','飞行模式','65','备用','禁止.*改代码','脚本') \| ForEach-Object { if (-not (Select-String -Path $p -Pattern $_)) { exit 1 } }"` | 6 组关键词**每组 ≥1 命中**，退出码 0 |
 | C11 | 报告页数据来源可追溯 | 同上 `--plain-name "report cites active dataset version"` | `datasetVersion` 与 `isDemoActive` 可在 UI/日志中读到，且与数据集文件一致 |
 | C14 | **演示数据就绪自检项（ADR-04 第 14 项）** | `flutter test test/demo/self_check_test.dart --plain-name "demoData reflects library state"` | `items` 中存在 `key=="demoData"` 的项；数据集可解析且与库内 `source=='demo'` 状态一致时 `passed==true`；**不一致或不可解析时 `passed==false` 且 `hint` 非空（「改用实时模式」）**，`observed` 非空 |
 
@@ -182,7 +182,7 @@ REAL_ONLY ──真实记录不足（主方案 §9.1）──▶ DEMO_ACTIVE（l
 
 | 字段 | 说明 |
 |---|---|
-| 记录产物路径 | `docs/demo/D9_三模式实测记录.md`（Mode C 段）+ 证据 `docs/demo/evidence/D9_modeC_*.log`（含 `isDemoActive`、`datasetVersion`、`source` 分布、复算结果快照） |
+| 记录产物路径 | `records/demo/D9_三模式实测记录.md`（Mode C 段）+ 证据 `records/demo/evidence/D9_modeC_*.log`（含 `isDemoActive`、`datasetVersion`、`source` 分布、复算结果快照） |
 | 必填列 | 轮次 / 时间 / 生效 Track / 数据集版本 / 记录条数 / UI 总分 / 复算总分 / 差异 / 雷达四项是否一致 / 是否通过 |
 | 轮次要求 | ≥2 轮（Track 2 一轮 + 清除后 Track 1 一轮）；**C1–C4 的差异列必须为 0** |
 

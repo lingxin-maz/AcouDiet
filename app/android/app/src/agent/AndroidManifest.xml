@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AGENT FLAVOUR manifest overlay (ADR-44).
+
+  ADR-44 split the single v1.0 privacy posture into two product flavours:
+
+    * `offline` has NO overlay at all. It inherits `src/main/AndroidManifest.xml`
+      unchanged, so its merged release manifest stays on the original evidence chain:
+      exactly RECORD_AUDIO, no INTERNET.
+    * `agent` is the new posture. It adds the one export the cloud agent needs
+      (INTERNET) plus the package visibility declarations required to hand a search
+      URL to a third party app.
+
+  FF-24 item 4 as amended by ADR-44: the `offline` release must not request INTERNET
+  and the `agent` release must. FF-24 item 5: the permission set is exactly
+  {RECORD_AUDIO} for `offline` and exactly {RECORD_AUDIO, INTERNET} for `agent`.
+  `app/build.gradle` audits the merged release manifest and fails the build if either
+  flavour deviates, including any camera / location / contacts / READ_MEDIA_* /
+  VIBRATE addition.
+-->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      API-07 section 3.4 / FF-26i: handing a search URL to Meituan, Eleme or Taobao.
+
+      `<queries>` is NOT a permission. It declares which other apps this app may *see*,
+      so it does NOT enter the `uses-permission` set that SPEC-C-01 section 7 #1b/#2
+      asserts. That is why it can live here without weakening the permission
+      minimalisation claim.
+
+      These are search result deep links only. FF-26i forbids an accessibility service,
+      simulated taps and proxy ordering; the user finishes the order inside the third party
+      app. Exactly three platforms (FF-26j).
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" android:host="i.meituan.com" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" android:host="www.ele.me" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" android:host="s.taobao.com" />
+        </intent>
+    </queries>
+</manifest>

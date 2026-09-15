@@ -57,7 +57,7 @@
 5. 跑静态分析与提交前测试集：`dart analyze` 与 `flutter analyze` 的 **error 数必须为 0**；再跑 `SPEC-C-05` 的提交前集合（单元 + 对齐 + 隐私回归）。
 6. 出包：`flutter build apk --release --split-per-abi`。
 7. 对每个 ABI 产物执行：`apksigner verify`、`aapt dump badging`（权限复核回 `SPEC-C-01`）、`sha256`、体积记录。
-8. 按 §4 命名规范重命名并归档到 `docs/release/`，填写发布前检查清单（§7 附表），打冻结 tag 并记录时间戳；此后**任何人不得提交代码**（R-14 收口）。
+8. 按 §4 命名规范重命名并归档到 `release/`，填写发布前检查清单（§7 附表），打冻结 tag 并记录时间戳；此后**任何人不得提交代码**（R-14 收口）。
 
 ### 2.3 状态与状态迁移
 
@@ -100,19 +100,19 @@ PRE_FREEZE ──冻结 tag──▶ FROZEN ──出包──▶ BUILT ──�
 |---|---|---|
 | APK | `AcouDiet-v<版本号>-<yyyyMMdd>-<abi>.apk` | `sha256`、字节数、构建类型、ABI |
 | 模型制品 | 随 `API-00` §3.4 的 `<name>_<version>.tflite` | `sha256` 记录在 `model_card.json`（`API-05` §7） |
-| 归档索引 | `docs/release/RELEASE_<版本号>_<yyyyMMdd>.md` | 字段见下表 |
-| 发布前检查清单 | `docs/release/pre_release_checklist_<yyyyMMdd>.md` | 逐项打勾 + 签字 |
+| 归档索引 | `release/RELEASE_<版本号>_<yyyyMMdd>_<flavour>.md` | 字段见下表。**一份归档索引只描述一个风味**（表内有 `flavour` 行），因此文件名必须带风味：`ADR-48` 之前两份索引互相覆盖，v1.3.0 的 agent 记录就是这样丢的 |
+| 发布前检查清单 | `release/pre_release_checklist_<yyyyMMdd>.md` | 逐项打勾 + 签字 |
 
 **归档索引字段**：
 
 | 字段 | 类型 | 值域 | 可空 |
 |---|---|---|---|
 | `appVersion` | string | 形如 `1.0.0+1`（与 `pubspec.yaml` 一致） | 否 |
-| `apkPath` | string | `docs/release/...` | 否 |
+| `apkPath` | string | `release/...` | 否 |
 | `apkSha256` | string | 64 hex | 否 |
 | `apkBytes` | int | `>0`（**只记录，不设上限**） | 否 |
 | `tfliteBytes` | int | `≤2.5 MB`（FF-16） | 否 |
-| `permissions` | string[] | 必须为 `[android.permission.RECORD_AUDIO]` | 否 |
+| `permissions` | string[] | **按风味**（`ADR-44`）：`offline` 必须为 `[android.permission.RECORD_AUDIO]`；`agent` 必须为 `[android.permission.RECORD_AUDIO, android.permission.INTERNET]`。两档都**不得**多出任何第三项 | 否 |
 | `freezeCommit` | string | git commit 短哈希 | 否 |
 | `analyzeErrors` | int | 必须为 `0` | 否 |
 
@@ -121,7 +121,7 @@ PRE_FREEZE ──冻结 tag──▶ FROZEN ──出包──▶ BUILT ──�
 | 项 | 引用 |
 |---|---|
 | 平台 / SDK 版本 / 包名 / 应用名 | `SPEC-00` §3.8（FF-23），**不在本文档复写数值** |
-| 模型体积上限与权限集合 | `SPEC-00` §3.2（FF-16）、§3.9（FF-24 第 4/5 条）+ `SPEC-C-01` §7 #1/#2 |
+| 模型体积上限与权限集合 | `SPEC-00` §3.2（FF-16）、§3.9（FF-24 第 4/5 条，**`ADR-44` 已按风味修订** + 第 8/9 条）+ `SPEC-C-01` §7 #1a/#1b/#2 |
 | 制品命名与 hash 闭环 | `API-00` §3.4、`API-05` §7.1 |
 
 ## 6. 异常与降级
@@ -143,12 +143,12 @@ PRE_FREEZE ──冻结 tag──▶ FROZEN ──出包──▶ BUILT ──�
 | 2 | release 构建成功 | `flutter build apk --release --split-per-abi` | 退出码 0；每个目标 ABI 产物存在 |
 | 3 | 签名可用且正确 | `apksigner verify --print-certs <apk>` | 退出码 0；签名者 CN 与 keystore 一致 |
 | 4 | 签名材料未入库 | `git check-ignore -v app/android/key.properties`；`git ls-files` | 前者退出码 0（命中忽略）；后者对 `key.properties`/`*.jks`/`*.keystore` **命中行数 == 0** |
-| 5 | 权限复核通过 | 复用 `SPEC-C-01` §7 #1/#2 命令 | 无 `INTERNET`；权限集合 == `{RECORD_AUDIO}` |
+| 5 | 权限复核通过 | 复用 `SPEC-C-01` §7 #1a/#1b/#2 命令（**按风味**） | `offline`：无 `INTERNET`，权限集合 == `{RECORD_AUDIO}`；`agent`：集合恰为 `{RECORD_AUDIO, INTERNET}`（`ADR-44`） |
 | 6 | 模型体积达标 | `Get-Item app/assets/models/*.tflite` | `≤2.5 MB`（FF-16） |
-| 7 | 命名与归档合规 | 断言 `docs/release/AcouDiet-v*-<yyyyMMdd>-<abi>.apk` 存在 | 每个交付 ABI 均有匹配文件；`sha256` 长度 64 |
+| 7 | 命名与归档合规 | 断言 `release/AcouDiet-v*-<yyyyMMdd>-<abi>.apk` 存在 | 每个交付 ABI 均有匹配文件；`sha256` 长度 64 |
 | 8 | 归档索引字段齐全 | 断言 §4 字段全部出现 | 缺失字段数 == 0；`analyzeErrors == 0` |
 | 9 | D10 冻结生效 | `git log --since=<freeze-ts> --oneline`；`git tag -l 'v1.0.0-freeze'` | 提交行数 == 0；tag 存在 |
-| 10 | 检查清单完成 | `docs/release/pre_release_checklist_<yyyyMMdd>.md` 逐项打勾 | 全部勾选 + B/C 签字 |
+| 10 | 检查清单完成 | `release/pre_release_checklist_<yyyyMMdd>.md` 逐项打勾 | 全部勾选 + B/C 签字 |
 
 **§7 附表：发布前检查清单（逐项可勾选）**
 
@@ -156,7 +156,7 @@ PRE_FREEZE ──冻结 tag──▶ FROZEN ──出包──▶ BUILT ──�
 |---|---|---|---|
 | 1 | `flutter analyze` / `dart analyze` 零 error | §7 #1 | ☐ |
 | 2 | `SPEC-C-05` 提交前测试集全绿、`SPEC-C-03` 旧值零残留命中 0 | `SPEC-C-05` §7、`SPEC-C-03` §7 #3 | ☐ |
-| 3 | release APK 无 `INTERNET`、仅 `RECORD_AUDIO` | `SPEC-C-01` §7 #1/#2 | ☐ |
+| 3 | release APK 的权限集合符合其风味 | `SPEC-C-01` §7 #1a/#1b/#2 | `offline`：无 `INTERNET`、仅 `RECORD_AUDIO`；`agent`：恰为 `{RECORD_AUDIO, INTERNET}`（`ADR-44`）—— **两个风味都要出包、都要留证** | ☐ |
 | 4 | 签名有效且非 debug 签名 | §7 #3 | ☐ |
 | 5 | `key.properties`/keystore 未入库 | §7 #4 | ☐ |
 | 6 | 模型 `≤2.5 MB`（FF-16） | §7 #6 | ☐ |

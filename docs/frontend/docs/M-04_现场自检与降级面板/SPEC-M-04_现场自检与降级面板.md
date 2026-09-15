@@ -222,7 +222,7 @@ class SelfCheckItem { String key; String label; bool passed; String observed; St
 
 | 字段 | 说明 |
 |---|---|
-| 记录产物路径 | `docs/demo/D9_三模式实测记录.md`（面板段）+ 证据 `docs/demo/evidence/D9_selfcheck_*.log`（每次自检的完整 `SelfCheckReport` 快照） |
+| 记录产物路径 | `records/demo/D9_三模式实测记录.md`（面板段）+ 证据 `records/demo/evidence/D9_selfcheck_*.log`（每次自检的完整 `SelfCheckReport` 快照） |
 | 必填列 | 轮次 / 时间 / 场地 / 14 项 passed 汇总 / 失败项 key / `observed` / 结论行 / 随后切换到的模式 / 切换是否成功 / 是否与结论一致 |
 | 轮次要求 / 时间证据 | ≥3 轮：①进场前（D9 早）②首次完整演示前 ③人为制造一类故障后。**缺失任一轮视为未实测**；记录表须含**时间戳**以证明「D9 前已可用」 |
 

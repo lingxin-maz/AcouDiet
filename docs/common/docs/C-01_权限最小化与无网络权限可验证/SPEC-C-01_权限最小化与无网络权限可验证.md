@@ -4,27 +4,41 @@
 |---|---|
 | 域 | `C` · 合规与工程基础 |
 | 归属 | B |
-| 状态 | ✅ v1.0 交付 |
-| 上游依据 | 主方案 §6.1 措施 4/5、§10.2 必现图表第 7 项、§9.2 现场 SOP；`SPEC-00` §3.9（FF-24 第 4/5 条）、§3.10（FF-25）；`API-05` §1/§3.1/§10/§11/§12 |
-| 依赖的 SPEC | 无（`SPEC-C-04` 反向复用本功能的权限复核口径） |
+| 状态 | ✅ 交付（`ADR-44` **修订**：判据按**风味**重写） |
+| 上游依据 | 主方案 §6.1 措施 4/5、§10.2 必现图表第 7 项、§9.2 现场 SOP；`SPEC-00` §3.9（FF-24 第 4/5/8 条）、§3.10（FF-25）、§3.11（FF-26）；`API-05` §1/§3.1/§10/§12/§13 |
+| 依赖的 SPEC | 无（`SPEC-C-04` 反向复用本功能的权限复核口径；`SPEC-C-06` 复用本功能的证据链形式） |
+
+> # ✅ `ADR-44` 修订摘要（本文件是**判据**文件，修订必须最先落地）
+>
+> | 原判据 | 现行判据 |
+> |---|---|
+> | 「release APK 不声明 `INTERNET`」 | **`offline` 风味**不声明；**`agent` 风味**声明且**只**多这一项 |
+> | 「权限集合 == `{RECORD_AUDIO}`」 | `offline` == `{RECORD_AUDIO}`；`agent` == `{RECORD_AUDIO, INTERNET}` |
+> | 「全仓搜索 `http`/`dio`/`socket`/`WebSocket`/`url_launcher` 命中 == 0」 | **白名单目录制**：命中必须**全部**落在 `app/lib/data/net/**`、`app/lib/domain/agent/**`、`app/android/.../agent/**` 之内；白名单外 == 0。**这条比原来更强**：原来的判据只能证明"没有网络"，新的判据还能证明"网络只在被设计的位置" |
+> | （无） | 🆕 「`AccessibilityService` 与 `BIND_ACCESSIBILITY_SERVICE` 命中 == 0」（`FF-26i`） |
+> | （无） | 🆕 「`deepseek-flash` 在 Dart/Kotlin 源码中命中 == 0」（`FF-26h`） |
+>
+> **`ADR-44` 的诚实边界**：`offline` 风味的证据链**只对 `offline` 风味成立**。若只出 `agent` 包，
+> 本 SPEC 的原判据**一条都不适用** —— 所以 `PLAN-C-01` 的验收要求**两个风味都出包、都留证**。
 
 ## 1. 目标与范围
 
 ### 1.1 一句话目标
 
-把「音频不出设备、APK 连联网权限都没有」这条隐私主张，从口号变成**可复核的证据链**：合并后的 Manifest 只声明录音权限、不声明联网权限，用 `aapt dump badging` 留证，再以「代码层零网络调用搜索」与「飞行模式全流程实测」两道防线兜住。
+把「音频不出设备」这条隐私主张，从口号变成**可复核的证据链**：`offline` 风味合并后的 Manifest 只声明录音权限、不声明联网权限（用 `aapt dump badging` 留证），`agent` 风味恰好只多一个 `INTERNET`；再用「网络调用只许落在三个白名单目录」与「飞行模式下核心链路全可用」两道防线兜住。
 
 ### 1.2 范围内（In Scope）
 
 | # | 内容 | 产物 |
 |---|---|---|
-| 1 | 合并后 `AndroidManifest.xml` 的权限声明裁减与复核 | 仅 `RECORD_AUDIO` 的权限集合 |
-| 2 | `aapt dump badging` 证据产出与归档（PPT 必现图表第 7 项） | 证据文本 + APK `sha256` |
-| 3 | 代码层零网络调用防线（5 关键词全仓搜索，口径见 §7 #3） | 搜索输出，命中行数 0 |
-| 4 | 飞行模式全流程实测（检测→记录→报告→三种 Demo 模式） | 逐项核对表 + 截图 |
-| 5 | 「开启网络会失去什么」成文说明（引 `API-05` §10 三条） | 本文档 §2.4 与 §8 |
-| 6 | `API-05` §11「数据可携带性」缺口登记为已知限制 | 本文档 §9 与 §10 |
-| 7 | 发布前权限复核口径（供 `SPEC-C-04` 检查清单复用） | 本文档 §7 判据 #1/#2 |
+| 1 | **两个风味**的合并后 `AndroidManifest.xml` 权限声明裁减与复核 | `offline` = `{RECORD_AUDIO}`；`agent` = `{RECORD_AUDIO, INTERNET}` |
+| 2 | `aapt dump badging` 证据产出与归档（PPT 必现图表第 7 项，**取证对象 = `offline` 风味**） | **两份**证据文本 + 两个 APK 的 `sha256` |
+| 3 | 网络调用**白名单目录**判据（口径见 §7 #3） | `tool/check_network_boundary.py --strict`，白名单外命中 0；**自带负控** |
+| 4 | 音频出境判据（`FF-24` 第 8 条） | `tool/check_audio_egress.py --strict`，静态 + 运行时两项；**自带负控** |
+| 5 | 飞行模式全流程实测（检测→记录→报告→三种 Demo 模式；**`agent` 风味下跑**） | 逐项核对表 + 截图（`agent` 的 Agent 页允许显示降级态） |
+| 6 | 「开启网络会失去什么」成文说明（引 `API-05` §10 的四条对账） | 本文档 §2.4 与 §8 |
+| 7 | `API-05` §11「数据可携带性」缺口登记为已知限制 | 本文档 §9 与 §10 |
+| 8 | 发布前权限复核口径（供 `SPEC-C-04` 检查清单复用） | 本文档 §7 判据 #1a/#1b/#2 |
 
 ### 1.3 范围外（Out of Scope）
 
@@ -58,7 +72,7 @@
 6. 对 APK 计算 `sha256` 并写入证据文件（与 `API-05` §7 制品契约的记录方式一致）。
 7. 执行 §7 #3 的代码层 5 关键词搜索，把输出（命中行数 0）留存。
 8. 手机开飞行模式，按 §7 #4 的逐项核对表跑完整流程（检测→记录→报告→三种 Demo 模式），截图归档。
-9. 把证据文件、截图、核对表放入 `docs/compliance/C-01/`（归档规范见 `PLAN-C-01` §1），并在 PPT 第 7 项图表位置引用。
+9. 把证据文件、截图、核对表放入 `records/compliance/C-01/`（归档规范见 `PLAN-C-01` §1），并在 PPT 第 7 项图表位置引用。
 
 ### 2.3 状态与状态迁移
 
@@ -92,7 +106,7 @@
 | Dart → Kotlin | `requestPermission()`（`API-01` §2.2） | `{}` | `{granted, permanentlyDenied}` | 拒绝是正常返回值，非错误 |
 | Dart → Kotlin | `startSession()`（`API-01` §2.3） | 会话参数 | 会话摘要 | `ACD-PERM-001` / `ACD-PERM-002` |
 | Dart → Kotlin | `getDiagnostics()`（`API-01` §2.8） | `{}` | 诊断快照（含权限与清理计数） | 无 |
-| **出网** | **不存在** | — | — | 全仓零命中，见 §7 #3 |
+| **出网** | ✅ **`ADR-44` 修订**：`POST {base_url}/chat/completions`，**仅** `agent` 风味、**仅** `G-01` 的 `DeepSeekClient` | 结构化 JSON（`FF-26d` 白名单，构造点唯一 = `G-02` 的 `AgentPromptBuilder`） | SSE 流（`data:` 行）/ JSON | `ACD-AGENT-001`~`ACD-AGENT-010`（`API-05` §8 第二张表）。**白名单目录之外的出网仍然"不存在"**，判据见 §7 #3 |
 
 ## 4. 数据契约
 
@@ -131,13 +145,18 @@
 
 | # | 判据 | 验证方式（命令/测试名） | 通过阈值 |
 |---|---|---|---|
-| 1 | release APK 不声明联网权限 | `aapt dump badging <apk>` 重定向后 `Select-String 'uses-permission'` | 输出**不含** `android.permission.INTERNET` |
-| 2 | 权限集合最小 | 同 #1 的 `uses-permission` 行 | 集合等于 `{android.permission.RECORD_AUDIO}`；无相机/位置/通讯录/`READ_MEDIA_*` |
-| 3 | 代码层零网络调用 | `rg -n --glob '!**/build/**' -e 'http' -e 'dio' -e 'socket' -e 'WebSocket' -e 'url_launcher' app/lib app/android/app/src app/pubspec.yaml` | **命中行数 == 0**（`rg` 无命中时退出码 1，此即预期） |
+| 1a | **`offline` 风味**不声明联网权限 | `aapt dump badging dist/*offline*.apk` 重定向后 `Select-String 'uses-permission'` | 输出**不含** `android.permission.INTERNET` |
+| 1b | **`agent` 风味**的额外权限恰好是 `INTERNET` 一项 | 同 #1a，对象为 `dist/*agent*.apk` | 权限集合**逐字等于** `{android.permission.RECORD_AUDIO, android.permission.INTERNET}` |
+| 2 | 权限集合最小（两档都查） | 同 #1a/#1b 的 `uses-permission` 行 | `offline` == `{RECORD_AUDIO}`；`agent` == `{RECORD_AUDIO, INTERNET}`；两档均无相机/位置/通讯录/`READ_MEDIA_*`/`VIBRATE`；**`offline` 的权限集合与 `ADR-44` 之前的任何一版逐字相等**（这条是"没有退步"的判据） |
+| 3 | 网络调用只在**白名单目录**内 | `python tool/check_network_boundary.py --strict` | 命中**全部**落在 `app/lib/data/net/**`、`app/lib/domain/agent/**`、`app/android/app/src/main/kotlin/com/acoudiet/app/agent/**`；白名单外命中数 **== 0**；脚本 `--selftest` 的负控（白名单外放一个 `HttpClient`）必须变红 |
+| 3b | **音频不出境**（`FF-24` 第 8 条） | `python tool/check_audio_egress.py --strict` | ① 静态：网络层不得引用 `Float32List`/`Uint8List`/音频类型；② 运行时：`app/tool/agent_tests.dart` 断言每个请求体是纯结构化 JSON 且无长度 ≥1024 的数值数组。负控必须变红 |
 | 4 | 飞行模式全流程可用 | 人工核对表（下表），逐项打勾 + 截图 | 全部 7 项通过，无异常弹窗、无加载失败 |
 | 5 | 证据文件存在且自洽 | 断言 §4 的 5 个文件存在；`apk_sha256.txt` 中 hex 长度 64 | `Test-Path` 全真；hex 长度 == 64 |
-| 6 | 制品体积约束（仅模型） | `Get-Item app/assets/models/*.tflite` | `≤2.5 MB`（`SPEC-00` §3.2 FF-16 INT8 目标） |
+| 6 | 制品体积约束（仅模型） | `Get-Item app/assets/models/*.tflite` | `≤6 MB`（`SPEC-00` §3.2 FF-16；`ADR-21` 起按卡片申报档位） |
 | 7 | 权限证据可复核 | 对同一 APK 重跑 `aapt` 两次，比对 `uses-permission` 行 | 两次输出逐行相等 |
+| 8 🆕 | **无无障碍代操作**（`FF-26i`） | 全仓搜索 `AccessibilityService` 与 `BIND_ACCESSIBILITY_SERVICE` | 命中数 **== 0**；负控：在 Kotlin 里加一行该字符串必须变红 |
+| 9 🆕 | **模型名不硬编码**（`FF-26h`） | 搜索 `deepseek-flash` 在 `app/lib/**` 与 `app/android/app/src/main/kotlin/**` | 命中数 **== 0**（允许在 `shared/feature_config.json`、`app/assets/feature_config.json` 与 `docs/**`） |
+| 10 🆕 | **Key 不出现在可外发的表面** | 搜索 `sk-` 于 `getDiagnostics()` 输出、日志与 `records/compliance/**` 的截图证据 | 命中数 **== 0** |
 
 **§7 #4 飞行模式逐项核对表**（唯一允许的人工项，必须逐项给结论）：
 
@@ -169,6 +188,8 @@
 | **数据可携带性** | ❌ v1.0 无任何导出途径，卸载即丢数据；须在 PPT「后续工作」列出 SAF 导出 | `API-05` §11 |
 | 数据库加密 | ❌ v1.0 不做（设备级 FBE 已提供基础保护） | `API-05` §5.7 |
 | 云端同步 / 崩溃上报 / 分析埋点 | ❌ 不交付，规范状态 `DISABLED` | `API-05` §9 |
+| 🆕 **云端推理** | ✅ **已交付**（`ADR-44`），但**仅 `agent` 风味**、**默认关闭**、**音频零出境**；`offline` 风味**没有**这条能力 | `API-05` §13、`SPEC-G-01`、`SPEC-C-06` |
+| 🆕 **代下单 / 无障碍代操作** | ❌ **明文禁止**（不是"未实现"）：`FF-26i`。App 只做检索 URL 交接 | `SPEC-G-03` §9、`SPEC-U-07` §9 |
 | 模型热更新 | ❌ 不交付（R-OUT-3 禁止运行时从网络更新） | `API-05` §3.1 |
 | 数据库 BLOB 音频列 | ❌ 永不允许 | FF-24 第 3 条 |
 
@@ -178,7 +199,7 @@
 
 | # | 问题 | 影响 | 待谁拍板 |
 |---|---|---|---|
-| 1 | 证据归档目录 `docs/compliance/` 为新增目录，`SPEC-00` §1 的目录表未列该类目 | 归档位置缺乏权威依据 | C + 文档负责人 |
+| 1 | 证据归档目录 `records/compliance/` 为新增目录，`SPEC-00` §1 的目录表未列该类目 | 归档位置缺乏权威依据 | C + 文档负责人 |
 | 2 | 全局搜索口径是否包含 `docs/`（现有 `API-05` 正文含 `http` 讨论文字） | 影响 #3 判据能否为 0 | A+B |
 | 3 | `tools:node="remove"` 是否一律禁止（本文档取「一律禁止」） | 影响第三方依赖取舍 | B |
 | 4 | D4 的 debug 包证据是否足以支撑当日硬验收，或必须等 release | 影响 D4 验收判定 | B |

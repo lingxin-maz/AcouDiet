@@ -231,7 +231,7 @@ INJECTING ──用户停止──▶ stopSession ──────────
 
 | 字段 | 说明 |
 |---|---|
-| 记录产物路径 | `docs/demo/D9_三模式实测记录.md`（Mode B 段）+ 证据 `docs/demo/evidence/D9_modeB_*.log`（含 `injectPcm` 逐片调用时间戳） |
+| 记录产物路径 | `records/demo/D9_三模式实测记录.md`（Mode B 段）+ 证据 `records/demo/evidence/D9_modeB_*.log`（含 `injectPcm` 逐片调用时间戳） |
 | 必填列 | 段名 / 类别 / 清单时长(实测) / 投喂总时长(实测) / Top-1 / 置信度 / 与 mic 路径标签是否一致 / 置信度差 / 是否通过 |
 | 轮次要求 | 每类至少 1 段，共 ≥6 轮；**B1 的等价性必须在 ≥3 段上复现** |
 

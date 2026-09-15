@@ -154,7 +154,7 @@
 |---|---|---|---|
 | S1 | 特征形状与冻结值一致 | `getCapabilities()` 与 `feature_config.json` 全等；`patch.nFrames == FF-11` | 一致；否则 `ACD-CFG-001` |
 | S2 | 端到端标签级一致 | `python ai/scripts/parity_test.py --n 50` | 退出码 0；stdout 含「标签一致率 ≥ 0.98」「最大置信度偏差 ≤ 0.05」 |
-| S3 | 端到端可用 | 真机连续进食 30 s，`U-02` 出现确认卡片 | 人工核对表逐项通过（`docs/reports/p04_plan_s.md`） |
+| S3 | 端到端可用 | 真机连续进食 30 s，`U-02` 出现确认卡片 | 人工核对表逐项通过（`records/reports/p04_plan_s.md`） |
 | S4 | 降级已留痕 | 模型卡与测试报告中出现 Plan-S 声明 | 文本存在性断言（脚本 `grep`） |
 
 **Plan-S 的可行性必须在 D0 调研清楚，不得等到 D2 临时找**（`PLAN-00` §3.1）。
@@ -173,12 +173,12 @@
 | 9 | 握手字段一致 | `flutter test test/native/capabilities_handshake_test.dart` | `melVersion`/`rawMelFrames`/`nFrames`/`nMels`/`hopLength`/`nFft`/`preemphasisBoundary`/`powerToDbRef`/`topDb`/`normalization` 等 **15 字段**与 `feature_config.json` 全等（`ADR-21`；原 ~~12 字段~~） |
 | 10 | `melVersion` 递增可被捕获 | `CapabilitiesDriftTest`（注入改一位数值的假实现） | 必须抛 `ACD-CFG-001` |
 | 11 | 载荷类型为 `Float32List` | `flutter test test/native/patch_payload_type_test.dart` | 运行时类型为 `Float32List`，不是 `List<double>`/`String` |
-| 12 | 性能预算 | `MelFrontendTest.kt` 的 `bench_singlePatch`（仅记录，不设通过线） | 输出耗时日志；**数值为 D2 实测产出**，写入 `docs/reports/p04_mel_bench.md` |
+| 12 | 性能预算 | `MelFrontendTest.kt` 的 `bench_singlePatch`（仅记录，不设通过线） | 输出耗时日志；**数值为 D2 实测产出**，写入 `records/reports/p04_mel_bench.md` |
 | 13 | Plan-S 触发时可切换 | `flutter test test/native/mel_backend_switch_test.dart`（`MelBackend` 抽象） | 两种后端均可编译并产出同形状 `Float32List` |
 | 14 | 术语禁令零命中 | `python ai/scripts/assert_terms.py`（全仓库搜 `hop.*160`、`帧移 10`、`3s 窗`） | 命中数 == 0（`SPEC-C-03`） |
 
 ## 8. 非功能约束
-- **实时性**：单 patch 全链路（分帧→FFT→滤波器组→dB→布局）必须落在 FF-04 对应的 hop 预算内；实测耗时在 **D2 实测产出**，写入 `docs/reports/p04_mel_bench.md`，本 SPEC 不预设数字。
+- **实时性**：单 patch 全链路（分帧→FFT→滤波器组→dB→布局）必须落在 FF-04 对应的 hop 预算内；实测耗时在 **D2 实测产出**，写入 `records/reports/p04_mel_bench.md`，本 SPEC 不预设数字。
 - **内存**：滤波器组与窗函数会话内构建一次并复用；每 patch 的临时数组复用，峰值额外内存 ≤ 65536 × 4 B 的常数倍。
 - **确定性**：同输入必同输出，是 `PLAN-T-08` 存在的前提；任何随机化（如 Mel 抖动）都属契约变更。
 - **隐私**：Mel 张量只存在于内存与事件载荷中，**不落盘**；离线对齐产出的 `mel.bin` 只能放在测试产物目录，不得进 App 资源（FF-24 §1）。
@@ -199,7 +199,7 @@
 2. **✅ 已关闭（依据 `ADR-16` / FF-03）**：STFT 填充模式**已冻结为 `pad_mode = "constant"`**（**零填充**，librosa `center=True` 的默认）；`reflect` **已否决** —— 它会改变前若干 Mel 帧的数值，直接决定 `atol=1e-3` 能否通过。
 3. **✅ 已关闭（依据 `ADR-16` / FF-07）→ ⚠️ 已由 `ADR-21`（2026-09-12）正式反转**：本项原冻结为 ~~`power_to_db_ref = 1.0`（绝对刻度）~~，理由是"使 FF-08 的固定 dB 截断作用在绝对标度上、避免 patch 相对量"。**该理由对 ADR-16 当时要冻结的链路成立，但对交付制品不成立** —— 交付的模型是**按 patch 相对刻度训练**的（`ref = patch_max`），此时"推理与训练不一致"是**更大的**误差。**现行值：`power_to_db_ref = "patch_max"`**，且 `normalization` 同步由 ~~`fixed_db_clip`~~ 改为 `per_patch_minmax`（`db_clip_range` 键已删除）。完整裁定见 `ADR-21` 裁定 2/3。
 4. **✅ 已关闭（依据 `ADR-16` / FF-05）**：Mel 滤波器组**已冻结为 `mel_htk = false` + `mel_norm = "slaney"`**（**Slaney 刻度与 Slaney 面积归一化**，librosa 默认）；`htk=True` **已否决**（滤波器形状不同，是本项目第二个高危数值分歧点）。
-5. **Plan-S 的 D0 调研结论未归档**：`PLAN-00` §3.1 要求在 D0 调研清楚，但当前仓库 `docs/reports/` 下无该记录。**需 B 在 D0 补齐并在本 SPEC §6.2 回填结论。**
+5. **Plan-S 的 D0 调研结论未归档**：`PLAN-00` §3.1 要求在 D0 调研清楚，但当前仓库 `records/reports/` 下无该记录。**需 B 在 D0 补齐并在本 SPEC §6.2 回填结论。**
 6. **Plan-S 与 FF-08 存在不可调和的冲突**：Task Library 内部特征化不接受本 SPEC §2.2 步骤 7–9 的链路干预（见 §6.2 代价 1）。触发 Plan-S 时必须同步修改 `SPEC-T-08` 的判据口径，**需 A/B 三方确认**。
 
 > **第 2、3、4 条的共同硬性约束（`ADR-16`；第 3 条的取值经 `ADR-21` 修订）**：**`pad_mode` / `power_to_db_ref` / `mel_htk` / `mel_norm`** 这四个值（`ADR-21` 之后还应加上 `power_to_db_amin` / `top_db` / `normalization` 及其 min-max 三键）**必须由 Python 训练侧与 Kotlin 侧同时读取 `feature_config` 的同一组键，不得各写常量** —— 它们是 `PLAN-T-08` 的 `atol=1e-3` 能否通过的直接决定因素。

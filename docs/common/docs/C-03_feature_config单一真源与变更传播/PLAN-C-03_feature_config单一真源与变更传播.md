@@ -18,8 +18,8 @@
 | 4 | `app/android/app/src/main/kotlin/.../NativeCapabilities.kt` | Kotlin 编译期固化常量 + `getCapabilities()` 返回体 |
 | 5 | `app/test/cfg/generated_constants_test.dart` | 生成产物与 SSOT 逐字段相等断言 |
 | 6 | `app/test/cfg/handshake_test.dart` | **15 字段**握手全等 + 不符即 `ACD-CFG-001`（`ADR-21`；原 ~~12 字段~~） |
-| 7 | `docs/compliance/C-03/change_propagation_checklist.md` | `SPEC-C-03` §7 附表的打勾件（**14 项** + 签名） |
-| 8 | `docs/compliance/C-03/cfg_scan_zero_hits.txt` | 判据 #3 的搜索命令与输出（命中 0） |
+| 7 | `records/compliance/C-03/change_propagation_checklist.md` | `SPEC-C-03` §7 附表的打勾件（**14 项** + 签名） |
+| 8 | `records/compliance/C-03/cfg_scan_zero_hits.txt` | 判据 #3 的搜索命令与输出（命中 0） |
 
 ## 2. 任务拆解（WBS）
 
@@ -96,7 +96,7 @@ void main() {
 
 ## 5. 完成定义（DoD）
 
-- [ ] `SPEC-C-03` 第 7 节 **5** 条判据全部通过，输出已归档到 `docs/compliance/C-03/`
+- [ ] `SPEC-C-03` 第 7 节 **5** 条判据全部通过，输出已归档到 `records/compliance/C-03/`
 - [ ] Dart 常量 100% 由生成器产出，业务代码零手写字符串键名
 - [ ] Kotlin **15 字段**由 SSOT 派生，`getCapabilities()` 与 assets 全等（`ADR-21`；原 ~~12~~）
 - [ ] 握手失败路径实测可拦截（构造用例通过）

@@ -141,7 +141,7 @@ abstract class InferenceEngine {
 | `n_frames` | FF-11（**`n_frames = 128`**；旧值 ~~`n_frames = 129`~~ → 已由 `ADR-21`（2026-09-12）修订，`129` 现为 `raw_mel_frames`；见 FF-11 / `ADR-21`） |
 | 推理滑窗步长（默认） | FF-12 |
 | 降级后的滑窗步长 | FF-12 的 2 倍（1.0 s）；**降级阈值取 `API-01` §3.3 的 `droppedPatches / patchesEmitted > 0.05`** |
-| 单 patch 延迟目标 | 以 `API-00` §3.7 的既有约定为准（**该值为上游约定，非本 SPEC 预测**）；**实测值在 D4 产出**，写入 `docs/reports/p05_latency.md` |
+| 单 patch 延迟目标 | 以 `API-00` §3.7 的既有约定为准（**该值为上游约定，非本 SPEC 预测**）；**实测值在 D4 产出**，写入 `records/reports/p05_latency.md` |
 | 平台 / `minSdk` / ABI | FF-23 |
 
 ## 6. 异常与降级
@@ -167,7 +167,7 @@ abstract class InferenceEngine {
 | 6 | XNNPACK 启用 | 同上 `xnnpack_enabledByDefault` | 委托链中存在 XNNPACK；`getDiagnostics` 可见 |
 | 7 | 独立 isolate | `flutter test test/domain/inference_isolate_test.dart` | `Isolate.current.debugName !=` UI isolate 名；UI isolate 在 `run()` 期间仍能响应（心跳断言） |
 | 8 | 不跨 patch 保留状态 | `flutter test test/domain/inference_stateless_test.dart` | 连续两次 `run()` 同一输入结果逐元素相等；引擎无可变业务字段 |
-| 9 | 延迟实测记录 | `flutter test test/domain/inference_bench_test.dart`（**仅记录，不设通过线**） | 输出 `latencyMs` 分布；写入 `docs/reports/p05_latency.md`（**D4 实测产出**） |
+| 9 | 延迟实测记录 | `flutter test test/domain/inference_bench_test.dart`（**仅记录，不设通过线**） | 输出 `latencyMs` 分布；写入 `records/reports/p05_latency.md`（**D4 实测产出**） |
 | 10 | 降级路径可触发 | `flutter test test/domain/inference_degrade_test.dart`（注入 2 s 假延迟） | 出现降级信号；步长切换为 1.0 s；`droppedPatches` 不再持续增长 |
 | 11 | `dispose()` 释放 | 同上第 1 条测试的 `dispose_thenRun_throwsACD_INF_004` | 抛 `ACD-INF-004`；`isLoaded == false`；isolate 已关闭（`kill` 计数断言） |
 | 12 | 模型体积合规 | `python ai/scripts/check_model_size.py assets/models/*.tflite` | **按模型卡申报档位**取 FF-16 上限（fp32 ≤ 6 MB；int8 ≤ 2.5 MB，两档均可交付，`ADR-21`）；stdout 打印实测字节数。~~只按 INT8 上限判~~ |

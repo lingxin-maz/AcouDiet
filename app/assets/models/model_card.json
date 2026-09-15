@@ -1,0 +1,29 @@
+{
+  "name": "acoudiet",
+  "version": "1.3.0",
+  "createdAtMs": 1789446016481,
+  "quantization": "fp32",
+  "inputShape": [
+    1,
+    128,
+    128,
+    1
+  ],
+  "numClasses": 6,
+  "classLabels": [
+    "chips",
+    "cabbage",
+    "gummies",
+    "noodles",
+    "carrot",
+    "drink"
+  ],
+  "nFrames": 128,
+  "melVersion": "1.1.0",
+  "featureConfigSha256": "a85c1f36e64cd54e400c9d4d3109769d181d53b7ac4746038d5d6922c477c064",
+  "tfliteSha256": "31fba3ecba852cb51ac8166ab49cba1f4be3f4b23cafbfc5cace8780bfa019f4",
+  "tfliteBytes": 4053556,
+  "parityLabelMatch": 1.0,
+  "parityMaxConfDelta": 1.519918441772461e-06,
+  "metricsRef": "ai/artifacts/metrics.json"
+}

@@ -25,7 +25,7 @@
 | 12 | `ai/scripts/chew_mae_report.py` | 咀嚼次数 MAE 评估（FF-21g） |
 | 13 | `ai/scripts/assert_x07_not_implemented.py` | `X-07`（节律 σ）未实现断言 |
 | 14 | `ai/scripts/assert_no_hardcoded_behavior.py` | 阈值硬编码扫描 |
-| 15 | `docs/reports/p07_chew_mae.md` | MAE 报告（**D7 实测产出**）+ 平滑窗与 MAE 降级线标定记录 |
+| 15 | `records/reports/p07_chew_mae.md` | MAE 报告（**D7 实测产出**）+ 平滑窗与 MAE 降级线标定记录 |
 | 16 | `shared/feature_config.json` 的 `behavior` 段（经 `PLAN-C-03`） | 平滑窗/降级线的单一真源（包络帧长与 hop 引用 FF-21h） |
 | 17 | `test/domain/fake_envelope_source.dart` | **`FakeEnvelopeSource`**：用固定包络数组喂入 `BehaviorAnalyzer`，使平滑与峰值检测可在**无设备**时单测（`API-01` §7「代价与缓解」） |
 
@@ -113,7 +113,7 @@ class RmsBehaviorAnalyzer implements BehaviorAnalyzer {
 | `chew_copy_test.nonDegradedCopy_containsYue` | Dart 单测 | 文案匹配 `约\s*\d+\s*次` | D7 |
 | `chew_copy_test.degradedCopy_hasNoDigits` | Dart 单测 | 降级文案为「咀嚼节奏：较快」且无数字 | D7 |
 | `behavior_failure_isolated_test` | Dart 单测（注入抛错 analyzer） | 识别与落库仍完成 | D7 / D8 |
-| `chew_mae_report.py --labels <set>` | 离线评估 | 输出 MAE 百分比；写入 `docs/reports/p07_chew_mae.md`；超降级线时标注「文案降级生效」 | D7 |
+| `chew_mae_report.py --labels <set>` | 离线评估 | 输出 MAE 百分比；写入 `records/reports/p07_chew_mae.md`；超降级线时标注「文案降级生效」 | D7 |
 | `assert_x07_not_implemented.py` | 静态扫描 | 命中数 == 0 | D7 / D10 |
 | `assert_no_hardcoded_behavior.py` | 静态扫描 | 命中数 == 0 | D7 / D10 |
 | **D7 硬验收**「约 45 次，偏快」 | 真机手测（人工核对表） | `PLAN-00` §1 D7 行输出形态正确（带「约」+ 速度评级） | D7 |
@@ -126,7 +126,7 @@ class RmsBehaviorAnalyzer implements BehaviorAnalyzer {
 - [ ] **`X-07` 未实现**已由静态扫描与字段审查双重证明（`BehaviorMetrics` 字段名集合恰为 4 个）。
 - [ ] FF-21f/FF-21g 文案规则在渲染层强制通过测试。
 - [ ] **D7 硬验收**：能输出「约 45 次，偏快」（`PLAN-00` §1 D7 行 / CP4 判定）。
-- [ ] `MAE` 实测值已写入 `docs/reports/p07_chew_mae.md`；若超线，降级已生效且报告留痕。
+- [ ] `MAE` 实测值已写入 `records/reports/p07_chew_mae.md`；若超线，降级已生效且报告留痕。
 - [ ] 行为分析失败不阻断主链路（注入式测试）；无证据时 `finish()` 返回 `null` 且 L3 仍写占位指标行。
 - [ ] `behavior` 段已进 `feature_config` 并完成 `PLAN-C-03` 变更传播登记。
 

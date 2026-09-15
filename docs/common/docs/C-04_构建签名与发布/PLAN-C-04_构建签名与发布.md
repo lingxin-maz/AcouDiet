@@ -16,10 +16,10 @@
 | 2 | 本机 `key.properties`（**不入库**） | `storeFile`/`storePassword`/`keyAlias`/`keyPassword` |
 | 3 | `app/android/.gitignore`（或根 `.gitignore` 的相应条目） | 覆盖 `key.properties`、`*.jks`、`*.keystore` |
 | 4 | `app/android/app/build.gradle` | `signingConfigs.release` 配置（**读本机 properties，不硬编码口令**） |
-| 5 | `docs/release/AcouDiet-v1.0.0-<yyyyMMdd>-<abi>.apk` | 交付 APK（每 ABI 一份） |
-| 6 | `docs/release/RELEASE_1.0.0_<yyyyMMdd>.md` | 归档索引（字段见 `SPEC-C-04` §4） |
-| 7 | `docs/release/pre_release_checklist_<yyyyMMdd>.md` | 发布前检查清单（14 项，逐项打勾 + 签字） |
-| 8 | `docs/release/apk_sha256.txt` | 各 ABI 的 64 位 hex 与字节数 |
+| 5 | `release/AcouDiet-v1.0.0-<yyyyMMdd>-<abi>.apk` | 交付 APK（每 ABI 一份） |
+| 6 | `release/RELEASE_1.0.0_<yyyyMMdd>_<flavour>.md` | 归档索引（字段见 `SPEC-C-04` §4；**必须带风味**，`ADR-48`） |
+| 7 | `release/pre_release_checklist_<yyyyMMdd>.md` | 发布前检查清单（14 项，逐项打勾 + 签字） |
+| 8 | `release/apk_sha256.txt` | 各 ABI 的 64 位 hex 与字节数 |
 
 ## 2. 任务拆解（WBS）
 

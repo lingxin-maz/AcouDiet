@@ -286,6 +286,33 @@ def main() -> int:
             (AI / "reports" / "threshold_calibration.md").exists(),
             "ai/reports/threshold_calibration.md")
 
+    # --- model sanity: a small linear model kept as a gate ------------------------------------
+    #
+    # ADR-40 found the shipped recogniser's output barely depends on its input, and the only thing
+    # that established it was a logistic regression fitted on the corpus -- a small model, in the
+    # toolchain. This makes that check permanent and cheap: the detector is exercised against data
+    # whose answer is known, so it needs neither the model nor the corpus and can run in CI.
+    #
+    # A gate whose detector is never shown a failing case is not a gate, so both directions are
+    # asserted from the output: a constant predictor must be flagged, an input-dependent one must
+    # not be, and the separability control must separate a separable corpus while staying near
+    # chance on noise.
+    proc4 = subprocess.run(
+        [sys.executable, str(AI / "scripts" / "model_sanity.py"), "--selftest"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace")
+    out4 = (proc4.stdout or "") + (proc4.stderr or "")
+    r.check("model_sanity --selftest exits 0", proc4.returncode == 0,
+            f"exit={proc4.returncode} {out4.strip()[-100:]}")
+    r.check("a constant predictor is flagged as unusable",
+            "constant predictor]" in out4 and "ok=False" in out4,
+            "the detector catches a model that ignores its input")
+    r.check("an input-dependent model is NOT flagged",
+            "varying predictor]" in out4 and "ok=True" in out4,
+            "the detector does not fire on a healthy model")
+    r.check("the small model separates a separable corpus and not noise",
+            "[separability]" in out4,
+            "the control that tells 'the model is broken' from 'the corpus is broken'")
+
     # ---- summary ------------------------------------------------------------------------
     print()
     print("=" * 78)

@@ -525,6 +525,16 @@ Future<void> _detectionSessionChecks() async {
   await session.start(sessionId: 'S-1-test');
   check('the session reports itself as running', session.isRunning);
 
+  // ADR-57: the P-03 stage-3 noise gate is ON for detection sessions, and the value comes from the
+  // SSOT rather than from a literal at the call site. This assertion is load-bearing: dropping the
+  // `enableDenoise:` argument in `DetectionSession.start` makes the bridge fall back to its API
+  // default `false`, and this check then fails instead of the change passing unnoticed.
+  eq('ADR-57: the detection session asks the bridge for the noise gate',
+      bridge.lastEnableDenoise, cfg.FeatureConfig.denoiseGateEnabledByDefault);
+  eq('ADR-57: and the SSOT product default is ON', cfg.FeatureConfig.denoiseGateEnabledByDefault, true);
+  check('the bridge really was called (so the assertion above is not vacuous)',
+      bridge.lastEnableDenoise != null, '${bridge.lastEnableDenoise}');
+
   // Four consecutive confident patches: the first add is `none`, then it needs the EMA to
   // form and four stable patches, so drive a few more.
   //

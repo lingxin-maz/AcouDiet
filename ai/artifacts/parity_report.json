@@ -1,11 +1,11 @@
 {
   "schemaVersion": "1.0",
-  "generatedAtMs": 1789451436933,
+  "generatedAtMs": 1789538100852,
   "sampleCount": 18,
   "labelMatch": 1.0,
   "maxConfDelta": 1.519918441772461e-06,
   "modelParityMeasured": true,
-  "modelParitySource": "D:\\Desktop\\Food\\AcouDiet\\app\\assets\\models\\acoudiet_fp32_v1.3.0.tflite",
+  "modelParitySource": "D:\\Desktop\\Food\\app\\assets\\models\\acoudiet_fp32_v1.3.0.tflite",
   "modelParityPatchCount": 18,
   "thresholds": {
     "labelMatch": 0.98,

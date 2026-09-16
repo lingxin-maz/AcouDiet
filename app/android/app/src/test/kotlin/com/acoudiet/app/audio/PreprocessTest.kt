@@ -106,10 +106,37 @@ object PreprocessTest {
             "peak=$peak (no inference-side gain is applied; ADR-17 / FF-08b)",
         )
 
-        // spectral subtraction cannot be enabled: its parameters are not in the SSOT
-        Check.throws("denoise_withoutParameters_throwsACD_CFG_001", "ACD-CFG-001") {
-            Preprocess.apply(src, enableDenoise = true)
+        // ADR-56: the denoise switch now has parameters (SSOT block `denoise`) and runs the
+        // time-domain gate at stage 3. What must NOT change is the default path: criterion 5 of
+        // SPEC-P-03 requires enableDenoise=false to bypass stage 3 entirely, so the array must be
+        // bit-identical to the no-denoise result.
+        val noDenoise = Preprocess.apply(src)
+        val withDenoiseFlag = Preprocess.apply(src, enableDenoise = true)
+        val identical = noDenoise.indices.all { noDenoise[it] == withDenoiseFlag[it] }
+        Check.that(
+            "denoise_gate_changesTheSignalWhenEnabled",
+            !identical,
+            "the gate must actually do something when enabled (ADR-56)",
+        )
+        val gateOn = FloatArray(src.size)
+        System.arraycopy(withDenoiseFlag, 0, gateOn, 0, src.size)
+        // The gate can only attenuate: it must never amplify any sample.
+        var amplified = false
+        for (i in src.indices) {
+            if (abs(gateOn[i].toDouble()) > abs(noDenoise[i].toDouble()) + 1e-9) amplified = true
         }
+        Check.that(
+            "denoise_gate_neverAmplifies",
+            !amplified,
+            "gain <= 1 by construction (ADR-54/56); an amplified sample means the gain curve is wrong",
+        )
+        // Determinism: same input, same output (SPEC-P-03 acceptance 3 extends to stage 3).
+        val again = Preprocess.apply(src, enableDenoise = true)
+        Check.that(
+            "denoise_gate_isDeterministic",
+            again.indices.all { again[it] == withDenoiseFlag[it] },
+            "same input must give the same output",
+        )
 
         // #6 no cross-patch state: the object has no mutable static fields. The predecessor is
         // PASSED IN rather than stored, which is why this invariant survives ADR-21 intact.

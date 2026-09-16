@@ -20,7 +20,7 @@
   ],
   "nFrames": 128,
   "melVersion": "1.1.0",
-  "featureConfigSha256": "a85c1f36e64cd54e400c9d4d3109769d181d53b7ac4746038d5d6922c477c064",
+  "featureConfigSha256": "ae192ce6db2bb585ae6a2e212db75102bc6ab3ac4f747c17d9a59349c710ac4b",
   "tfliteSha256": "31fba3ecba852cb51ac8166ab49cba1f4be3f4b23cafbfc5cace8780bfa019f4",
   "tfliteBytes": 4053556,
   "parityLabelMatch": 1.0,

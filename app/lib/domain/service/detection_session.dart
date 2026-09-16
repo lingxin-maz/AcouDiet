@@ -208,6 +208,15 @@ class DetectionSession {
     }
     await bridge.startSession(
       sessionId: sessionId,
+      // ADR-57: the product default for the P-03 stage-3 noise gate is ON for detection sessions.
+      // The value lives in the SSOT (`denoise.gate_enabled_by_default`), not here, so the decision
+      // stays visible in the single source of truth and is reversible by editing one value.
+      //
+      // Note this does NOT change the API-level default: `AudioBridge.startSession` still defaults
+      // to `false`, so SPEC-P-03 criterion 5 ("a caller that does not ask gets a bit-identical,
+      // gate-free patch") still holds, and the gate remains off for every caller that does not
+      // opt in.
+      enableDenoise: cfg.FeatureConfig.denoiseGateEnabledByDefault,
       skipAudioRecord: skipAudioRecord,
       includeEnvelope: includeEnvelope,
     );

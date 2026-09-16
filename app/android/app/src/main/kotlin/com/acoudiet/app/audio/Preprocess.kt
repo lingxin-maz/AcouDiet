@@ -62,13 +62,6 @@ object Preprocess {
         if (pcm16.size != expected) {
             throw AcouDietException.sampleCountMismatch(expected, pcm16.size)
         }
-        if (enableDenoise) {
-            // No spectral-subtraction parameters exist in the SSOT, and SPEC-P-03 section 6
-            // forbids a silent downgrade: fail fast instead.
-            throw AcouDietException.cfgMismatch(
-                "spectralSubtraction", "parameters present", "missing from feature_config",
-            )
-        }
         if (FeatureConfig.PREEMPHASIS_BOUNDARY !=
             "continuous_stream_previous_raw_sample_or_zero_at_source_start"
         ) {
@@ -95,9 +88,24 @@ object Preprocess {
             prev = cur
         }
 
-        // 3. DC removal: REMOVED in v1.1 (ADR-21) -- deliberately absent, do not reintroduce.
-        // 4. high-pass: removed in v1.0 (ADR-17 / FF-08c) -- intentionally absent.
-        // 5. denoise: handled above (never enabled in the default path)
+        // 3. denoise: experimental time-domain transient-preserving gate (ADR-56 / FF-28).
+        //
+        // Default OFF (SPEC-P-03 section 1.3 / section 5), and the parameters come from the SSOT
+        // block `denoise`, so the stage is either fully specified or not run at all -- there is no
+        // silent-downgrade path left for section 2.4 to guard. This REPLACES the first-generation
+        // spectral subtraction, which measured as net harm (ADR-52 / ADR-53: on a noise-only patch
+        // it raised the energy by 9.5 dB, and it cost more signal than noise).
+        //
+        // Placement is deliberate: stage 3 sits AFTER pre-emphasis, matching the frozen chain order
+        // in SPEC-P-03 section 2.2. There is no training-side counterpart for this stage (unlike the
+        // spectral subtraction, which `augment.py` implements before pre-emphasis -- a mismatch
+        // recorded in ADR-52), so the only requirement is that both languages place it identically.
+        if (enableDenoise) {
+            NoiseGate.apply(x, expected, sampleRate = FeatureConfig.SAMPLE_RATE, out = x)
+        }
+
+        // 4. DC removal: REMOVED in v1.1 (ADR-21) -- deliberately absent, do not reintroduce.
+        // 5. high-pass: removed in v1.0 (ADR-17 / FF-08c) -- intentionally absent.
         // 6. loudness gain: identity on the inference side (see class docs)
 
         // 7. determinism guard: no NaN/Inf may reach the Mel frontend

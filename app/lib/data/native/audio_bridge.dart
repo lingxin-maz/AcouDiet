@@ -102,6 +102,13 @@ class FakeAudioBridge implements AudioBridge {
   /// Sequence numbers acknowledged through `ackPatch` (backpressure contract).
   final List<int> ackedSeq = [];
 
+  /// The last `enableDenoise` a caller requested, or `null` if `startSession` was never called.
+  ///
+  /// Recorded so the PRODUCT default can be asserted rather than assumed (ADR-57): the value comes
+  /// from the SSOT (`denoise.gate_enabled_by_default`), and if someone drops the argument at the
+  /// call site this field falls back to the API default `false` and the assertion goes red.
+  bool? lastEnableDenoise;
+
   @override
   Future<NativeCapabilities> getCapabilities() async => NativeCapabilities({
         // Projected from the generated constants rather than hand-copied, so this fake cannot
@@ -152,6 +159,7 @@ class FakeAudioBridge implements AudioBridge {
     }
     _sessionId = sessionId;
     _running = true;
+    lastEnableDenoise = enableDenoise;
     return {
       'sessionId': sessionId,
       'startedAtMs': DateTime.now().millisecondsSinceEpoch,

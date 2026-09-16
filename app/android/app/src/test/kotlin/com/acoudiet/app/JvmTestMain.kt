@@ -1,6 +1,7 @@
 package com.acoudiet.app
 
 import com.acoudiet.app.audio.MelFrontendTest
+import com.acoudiet.app.audio.NoiseGateParityTest
 import com.acoudiet.app.audio.PreprocessTest
 import com.acoudiet.app.audio.RingBufferTest
 import com.acoudiet.app.audio.VadTest
@@ -24,6 +25,7 @@ object JvmTestMain {
         println("=".repeat(72))
         RingBufferTest.run()
         PreprocessTest.run()
+        NoiseGateParityTest.run()
         MelFrontendTest.run()
         VadTest.run()
         VadSilenceEndTest.run()

@@ -41,6 +41,7 @@
     "model_internal_preprocessing",
     "behavior",
     "voting",
+    "denoise",
     "meal_windows",
     "health_score_weights",
     "health_score_formula",
@@ -81,6 +82,18 @@
       "tau_confirm",
       "tau_low",
       "confirmation_mute_seconds"
+    ],
+    "denoise": [
+      "gate_enabled_by_default",
+      "gate_frame_ms",
+      "gate_noise_window_ms",
+      "gate_noise_bias",
+      "gate_threshold_db",
+      "gate_knee_db",
+      "gate_max_attenuation_db",
+      "gate_lookahead_frames",
+      "gate_attack_ms",
+      "gate_release_ms"
     ],
     "meal_windows": [
       "units",
@@ -136,6 +149,6 @@
       "platform_taobao_verified_on"
     ]
   },
-  "keyCount": 45,
-  "allKeyCount": 50
+  "keyCount": 46,
+  "allKeyCount": 51
 }

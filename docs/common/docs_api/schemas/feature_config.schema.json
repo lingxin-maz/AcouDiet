@@ -55,7 +55,8 @@
     "meal_windows",
     "health_score_weights",
     "health_score_formula",
-    "agent"
+    "agent",
+    "denoise"
   ],
   "properties": {
     "_comment": {
@@ -1089,6 +1090,73 @@
               "description": "「一般」下界（60）"
             }
           }
+        }
+      }
+    },
+    "denoise": {
+      "type": "object",
+      "description": "P-03 第 3 阶段实验性降噪的参数（FF-28 / ADR-56）。**开关本身不在这里**：开关是运行时的 startSession.enableDenoise（API-01 §2.3），默认 false；本块只放参数，这样 P-03 §2.4「开关打开但参数缺失时必须抛 ACD-CFG-001、不得静默降级」才有的可依。算法是 ADR-54/56 的**时域瞬态保护门限**：每个时刻只有一个宽带增益，由前瞻峰值保持包络驱动（瞬态到达前就打开），因此①不可能改变瞬态频谱（无逐 bin 开关、无 musical noise）②只减不增（gain <= 1，机制上排除第一代「在纯噪音上放大 9 dB」的伪影）。第一代谱减法（augment.py::spectral_subtract）实测为负收益（ADR-52/53），已由本块取代。参数取值来自 ADR-54 在 864 组配置中按「信号衰减不超过 2 dB」预算选出的那一点；**本块不参与启动握手**（不影响任何张量语义）。",
+      "additionalProperties": false,
+      "required": [
+        "gate_enabled_by_default",
+        "gate_frame_ms",
+        "gate_noise_window_ms",
+        "gate_noise_bias",
+        "gate_threshold_db",
+        "gate_knee_db",
+        "gate_max_attenuation_db",
+        "gate_lookahead_frames",
+        "gate_attack_ms",
+        "gate_release_ms"
+      ],
+      "properties": {
+        "gate_enabled_by_default": {
+          "type": "boolean",
+          "description": "P-03 第 3 阶段门限的**产品默认值**（FF-28e / ADR-57）。注意它与 `AudioBridge.startSession` 的**API 默认值**是两个不同的东西：API 默认仍是 `false`（所以 SPEC-P-03 判据 5「未传入者拿到逐位相同、不含门限的 patch」依然成立），本键只决定**检测会话**是否主动开启门限。用户（产品负责人）已明确要求开启；改回 `false` 即可一键回退，无需改代码。"
+        },
+        "gate_frame_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "包络分帧长度（ms），同时是 hop（不重叠）。5.0 与项目冻结的包络 hop（FF-21h）一致。"
+        },
+        "gate_noise_window_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "最小值统计的滑窗长度（ms）：噪声底 = 该窗内包络的最小值 × gate_noise_bias。窗口在约 0.5 s 内能穿过脆响之间的空隙，因此估计的是噪音而不是信号。"
+        },
+        "gate_noise_bias": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "最小值统计的偏差补偿（「平滑包络的最小值」低估真噪声 PSD）。"
+        },
+        "gate_threshold_db": {
+          "type": "number",
+          "description": "门限：包络高于「噪声底 × 10^(threshold/20)」即视为信号（增益 0 dB，不动）。"
+        },
+        "gate_knee_db": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "软向下扩展的拐点宽度：增益以 1-exp(-x/knee) 平滑趋近 gate_max_attenuation_db。无硬拐点，所以不会 chatter。"
+        },
+        "gate_max_attenuation_db": {
+          "type": "number",
+          "minimum": 0,
+          "description": "安静段最多被压低多少 dB。这是「尽可能消除噪音」的旋钮：越大噪音去得越多，脆响之间也越容易发干。"
+        },
+        "gate_lookahead_frames": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "前瞻帧数（对称峰值保持的半宽）。>= 1 才是瞬态保护：门限在起振之前就打开。patch 离线处理，所以前瞻不需要因果延迟。"
+        },
+        "gate_attack_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "增益上升的一阶时间常数（ms）。必须短，否则削起振。"
+        },
+        "gate_release_ms": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "增益下降的一阶时间常数（ms）。可以长，避免脆响之间泵动。"
         }
       }
     },

@@ -229,6 +229,19 @@
     "confirmation_mute_seconds": 180
   },
 
+  "denoise": {
+    "gate_enabled_by_default": true,
+    "gate_frame_ms": 5.0,
+    "gate_noise_window_ms": 500.0,
+    "gate_noise_bias": 1.5,
+    "gate_threshold_db": 9.0,
+    "gate_knee_db": 6.0,
+    "gate_max_attenuation_db": 30.0,
+    "gate_lookahead_frames": 4,
+    "gate_attack_ms": 1.0,
+    "gate_release_ms": 80.0
+  },
+
   "meal_windows": {
     "units": "minutes_of_local_day; half-open [start, end); late_night wraps past midnight",
     "breakfast": [300, 600],

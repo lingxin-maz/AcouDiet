@@ -32,7 +32,7 @@ publish_to: "none"
 #
 # The build-time flavour reaches Dart through `--dart-define=ACOUDIET_FLAVOUR=<flavour>`, which
 # `tool/build_release.ps1` passes automatically (see app/lib/core/flavour.dart).
-version: 1.3.2+8
+version: 1.3.4+10
 
 environment:
   sdk: ">=3.5.0 <4.0.0"

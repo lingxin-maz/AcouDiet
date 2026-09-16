@@ -87,6 +87,18 @@ object FeatureConfig {
     const val VOTING_TAU_LOW: Double = 0.45
     const val VOTING_CONFIRMATION_MUTE_SECONDS: Int = 180
 
+    // ---- denoise ----
+    const val DENOISE_GATE_ENABLED_BY_DEFAULT: Boolean = true
+    const val DENOISE_GATE_FRAME_MS: Double = 5.0
+    const val DENOISE_GATE_NOISE_WINDOW_MS: Double = 500.0
+    const val DENOISE_GATE_NOISE_BIAS: Double = 1.5
+    const val DENOISE_GATE_THRESHOLD_DB: Double = 9.0
+    const val DENOISE_GATE_KNEE_DB: Double = 6.0
+    const val DENOISE_GATE_MAX_ATTENUATION_DB: Double = 30.0
+    const val DENOISE_GATE_LOOKAHEAD_FRAMES: Int = 4
+    const val DENOISE_GATE_ATTACK_MS: Double = 1.0
+    const val DENOISE_GATE_RELEASE_MS: Double = 80.0
+
     // ---- meal_windows ----
     const val MEAL_WINDOWS_UNITS: String = "minutes_of_local_day; half-open [start, end); late_night wraps past midnight"
     const val MEAL_WINDOWS_SNACK_IS_COMPLEMENT_OF_MEALS: Boolean = true

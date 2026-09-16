@@ -88,6 +88,18 @@ class FeatureConfig {
   static const double votingTauLow = 0.45;
   static const int votingConfirmationMuteSeconds = 180;
 
+  // ---- denoise ----
+  static const bool denoiseGateEnabledByDefault = true;
+  static const double denoiseGateFrameMs = 5.0;
+  static const double denoiseGateNoiseWindowMs = 500.0;
+  static const double denoiseGateNoiseBias = 1.5;
+  static const double denoiseGateThresholdDb = 9.0;
+  static const double denoiseGateKneeDb = 6.0;
+  static const double denoiseGateMaxAttenuationDb = 30.0;
+  static const int denoiseGateLookaheadFrames = 4;
+  static const double denoiseGateAttackMs = 1.0;
+  static const double denoiseGateReleaseMs = 80.0;
+
   // ---- meal_windows ----
   static const String mealWindowsUnits = 'minutes_of_local_day; half-open [start, end); late_night wraps past midnight';
   static const List<int> mealWindowsBreakfast = const <int>[300, 600];
